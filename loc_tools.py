@@ -7,7 +7,7 @@ import smtplib
 
 PATH = "static/html/"
 
-def scrape(url, bundle=False):
+def scrape(url, bundle):
   headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
   r = requests.get(url, headers=headers)
   soup = BeautifulSoup(r.text, "html.parser")
@@ -18,7 +18,7 @@ def scrape(url, bundle=False):
     #price = <div class="discount_final_price">
     bundle_name = soup.find("h2", class_="pageheader")
     bundle_price = soup.find("div", class_="discount_final_price")
-    return (bundle_name.text.strip(), bundle_price.text.strip())
+    return bundle_name.text.strip(), bundle_price.text.strip(), image_url
   else:
     #game name = <div class="apphub_AppName">
     game_name = soup.find("div", class_="apphub_AppName")

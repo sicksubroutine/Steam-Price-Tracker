@@ -1,4 +1,4 @@
-import os, random, time, schedule
+import os, random, time, schedule, datetime
 from replit import db
 from flask import Flask, request, session, redirect, render_template
 from loc_tools import scrape, saltGet, saltPass, compare
@@ -10,9 +10,9 @@ from flask_seasurf import SeaSurf
 #TODO: Implement password reset
 #TODO: Implement rate limiting on password requests/account creation
 #TODO: Recovery Token Expiration System
-#TODO: Admin panel to do maintence on users
 #TODO: Add error handling (try, except)
 #TODO: Add Email Confirmation
+#TODO: Convert as many routes to render_template as possible
 
 app = Flask(__name__, static_url_path='/static')
 csrf = SeaSurf()
@@ -20,14 +20,17 @@ csrf.init_app(app)
 app.secret_key = os.environ['sessionKey']
 PATH = "static/html/"
 
-#testing area
+"""
+#game testing area
 matches = db.prefix("game")
 for match in matches:
-  if db[match]["game_name"] == "HYPER DEMON":
-    
-    db[match]["old_price"] = "$0"
-    db[match]["percent_change"] = "0"
-  #print(f"{db[match]}")
+"""
+
+"""
+#user testing area
+matches = db.prefix("user")
+for match in matches:
+"""
 
 @app.route("/", methods=["GET"])
 def index():
@@ -39,6 +42,8 @@ def index():
 @csrf.include
 @app.route("/signup", methods=["GET"])
 def signup():
+  if session.get('logged_in'):
+    return redirect('/game_list')
   text = request.args.get("t")
   return render_template("signup.html", text=text)
   
@@ -58,13 +63,17 @@ def sign():
       text = "Email already exists!"
       return redirect(f"/signup?t={text}")
   user_num = "user" + str(random.randint(100_000_000, 999_999_999))
-  db[user_num] = {"username": username, "password": password, "salt": salt, "email": email, "admin": False}
+  account_creation = datetime.datetime.now()
+  account_creation = account_creation.strftime("%m-%d-%Y %I:%M:%S %p")
+  db[user_num] = {"username": username, "password": password, "salt": salt, "email": email, "admin": False, "creation_date": account_creation}
   text = f"You are signed up as {username}. Please Login!"
   return redirect(f"/login?t={text}")
 
 @csrf.include
 @app.route("/login", methods=["GET"])
 def login():
+  if session.get('logged_in'):
+    return redirect('/game_list')
   text = request.args.get("t")
   return render_template("login.html", text=text)
 
@@ -75,12 +84,14 @@ def log():
   password = form.get("password")
   matches = db.prefix("user")
   for match in matches:
+    current_time = datetime.datetime.now()
     if db[match]["username"] == username:
       salt = db[match]["salt"]
       password = saltPass(password, salt)
     else:
       continue
     if db[match]["username"] == username and db[match]["password"] == password and db[match]["admin"] == True:
+      db[match]["last_login"] = current_time.strftime("%m-%d-%Y %I:%M:%S %p")
       session["username"] = username
       session["admin"] = True
       session["logged_in"] = True
@@ -98,6 +109,7 @@ def log():
 """@app.route("/recover", methods=["GET"])
 def recover_password():
   pass"""
+
 @csrf.exempt
 @app.route("/price_add", methods=['POST'])
 def price_add():
@@ -146,6 +158,8 @@ def game_list():
   for match in matches:
     if session.get("username") == db[match]["username"]:
       l = list
+      l = l.replace("{old}", db[match]["old_price"])
+      l = l.replace("{percent_change}", db[match]["percent_change"])
       l = l.replace("{game_name}", db[match]["game_name"])
       l = l.replace("{game_price}", db[match]["price"])
       l = l.replace("{old_price}", "")
@@ -162,18 +176,42 @@ def game_list():
   else:
     page = page.replace("{t}", text)
   return page
-
-@app.route("/admin")
+  
+@csrf.include
+@app.route("/admin", methods=['GET'])
 def admin():
-  if session.get("logged_in"):
-    if session.get("admin"):
-      pass
-    else:
-      text = "You are not an Admin!"
-      return redirect(f"/game_list?t={text}")
+  if session.get("admin") and session.get("logged_in"):
+    user_list = []
+    matches = db.prefix("user")
+    for match in matches:
+      user_list.append({
+        "username": db[match]["username"],
+        "email": db[match]["email"],
+        "admin": db[match]["admin"],
+        "last_login": db[match]["last_login"],
+        "creation_date": db[match]["creation_date"]
+      })
+    text = request.args.get("t")
+    return render_template("admin.html", user_list=user_list, user=session.get("username"), text=text)
   else:
-    text = "You are not logged in!"
+    text = "You are not an Admin!"
     return redirect(f"/login?t={text}")
+
+@app.route("/delete", methods=['POST'])
+def delete():
+  if session.get("admin") and session.get("logged_in"):
+    form = request.form
+    username = form.get("username")
+    matches = db.prefix("user")
+    for match in matches:
+      if db[match]["username"] == username:
+        username = db[match]["username"]
+        del db[match]
+        text = f"{username} Deleted!"
+        return redirect(f"/admin?t={text}")
+  else:
+    text = "You are not an Admin!"
+    return redirect(f"/login?t={text}")      
 
 @app.route("/logout")
 def logout():
@@ -185,7 +223,8 @@ def logout():
   else:
     text = "Error, not logged in!"
     return redirect(f"/login?t={text}")
-
+    
+#compare()
 schedule.every().day.at("18:00").do(compare)
 
 if __name__ == "__main__":

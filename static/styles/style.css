@@ -52,3 +52,13 @@ input:hover{
 .short {
   width: 25%;
 }
+.blue {
+  color: blue;
+}
+.delete {
+  background: linear-gradient(90deg, rgba(255,0,0,1) 0%, rgba(0,0,255,1) 50%);
+  color: #fff;
+  box-shadow: 0px 0px 4px 2px rgba(0,0,0,0.2);
+  padding: 5px;
+  font-family: Arial, sans-serif; font-size: 14px;
+}
