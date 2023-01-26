@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>Login Page</title>
+  <link rel="stylesheet" href="/static/styles/logsign.css">
+</head>
+
+<body>
+  <h3>
+    Login Page
+  </h3><br>
+  <div class="box-shadow">
+  <span class="red_text">{t}</span>
+  <form method = "post" action = "/log">
+    
+    <p>Username: <span class="red_text">*</span><input type="text" name="username" required/></p>
+    <p>Password: <span class="red_text">*</span><input type="password" name="password" required/></p>   
+    <p>
+      <button class="btn" type="submit" class="btn">Login</button>
+    </p>
+  </form>
+    </div>
+</form>
+</body>
+</html>

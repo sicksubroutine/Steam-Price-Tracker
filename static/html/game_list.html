@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="/static/styles/style.css">
+  <title>Steam Price Track</title>
+</head>
+<body><center>
+  <a href="/logout"><button class ="btn" id="back">Logout</button></a>
+  {t}<br>
+  <h2>Steam Price Tracking</h2>
+  <h3>Logged in as {user}</h3>
+  <form action="/price_add" method="post">
+  <input type="text" class="url" name="url" placeholder="https://store.steampowered.com/app/1286680/Tiny_Tinas_Wonderlands/">
+  <input class="btn" type="submit" value="Submit">
+</form>
+  <hr>
+  <p>{game_list}</p>
+  </center>
+</body>
+</html>

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>Sign Up Page</title>
+  <link rel="stylesheet" href="/static/styles/logsign.css">
+  <script src="static/scripts/script.js"></script>
+</head>
+
+<body>
+  <h3>
+    Sign Up Page
+  </h3><br>
+  <div class="box-shadow">
+  <span class="red_text">{t}</span>
+  <form id="form" method = "post" action = "/sign">
+    <p>Username: <span class="red_text">*</span><input type="text" name="username" required/></p>
+    <p>Email: <span class="red_text">*</span><input type="email" name="email" required/></p>
+    <p>Password: <span class="red_text">*</span><input id="password" type="password" name="password" required/></p>   
+    <p>
+      Confirm Password: <span class="red_text">*</span><input id="confirm" type="password" name="confirm" required/></p>
+    </p>
+    <p>
+      <span id="error_message" class="red_text">Error: Passwords do not match!</span>
+      <button class="btn" type="submit" class="btn">Sign Up</button>
+    </p>
+  </form>
+    </div>
+</form>
+</body>
+  
+</html>
