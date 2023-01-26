@@ -99,8 +99,13 @@ def price_add():
     return redirect("/")
   form = request.form
   url = form.get("url")
-  name, price = scrape(url)
-  print(name, price)
+  bundle = form.get("bundle")
+  if bundle == None:
+    bundle = False
+    name, price = scrape(url, bundle)
+  else:
+    bundle = True
+    name, price = scrape(url, bundle)
   matches = db.prefix("game")
   for match in matches:
     if db[match]["game_name"] == None:
@@ -109,7 +114,7 @@ def price_add():
       text = "Game Already Added! Try another URL!"
       return redirect(f"/game_list?t={text}")
   game_key = "game" + str(random.randint(100_000_000, 999_999_999))
-  db[game_key] = {"game_name": name, "price": price, "url": url, "username": session.get("username")}
+  db[game_key] = {"game_name": name, "price": price, "url": url, "username": session.get("username"), "bundle": bundle}
   text = f"{name} Added!"
   return redirect(f"/game_list?t={text}")
 
@@ -133,6 +138,7 @@ def game_list():
       l = l.replace("{game_price}", db[match]["price"])
       l = l.replace("{old_price}", "")
       l = l.replace("{percent_change}", "<span class='red'>25% Decrease</span>")
+      l = l.replace("{bundle}", db[match]["bundle"])
       result += l
     else:
       continue
