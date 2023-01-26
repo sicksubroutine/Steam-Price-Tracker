@@ -1,34 +1,47 @@
-import os, random
+import os, random, time, schedule
 from replit import db
-from flask import Flask, request, session, redirect
-from loc_tools import scrape, saltGet, saltPass
-#TODO: Implement CSRF protection
-#TODO: Implement rate limiting on password requests
+from flask import Flask, request, session, redirect, render_template
+from loc_tools import scrape, saltGet, saltPass, compare
+from flask_seasurf import SeaSurf
+
+#TODO: Ability to set percent change target
+#TODO: Ability to set game price target
+#TODO: Account for games that aren't for sale
 #TODO: Implement password reset
+#TODO: Implement rate limiting on password requests/account creation
+#TODO: Recovery Token Expiration System
+#TODO: Admin panel to do maintence on users
+#TODO: Add error handling (try, except)
+#TODO: Add Email Confirmation
 
 app = Flask(__name__, static_url_path='/static')
-
+csrf = SeaSurf()
+csrf.init_app(app)
 app.secret_key = os.environ['sessionKey']
 PATH = "static/html/"
 
-@app.route("/")
+#testing area
+matches = db.prefix("game")
+for match in matches:
+  if db[match]["game_name"] == "HYPER DEMON":
+    
+    db[match]["old_price"] = "$0"
+    db[match]["percent_change"] = "0"
+  #print(f"{db[match]}")
+
+@app.route("/", methods=["GET"])
 def index():
   if session.get('logged_in'):
     return redirect('/game_list')
-  with open(f"{PATH}index.html", "r") as f:
-    return f.read()
+  text = request.args.get("t")
+  return render_template('index.html', text=text)
 
+@csrf.include
 @app.route("/signup", methods=["GET"])
 def signup():
-  with open(f"{PATH}signup.html", "r") as f:
-    page = f.read()
   text = request.args.get("t")
-  if text == None:
-    page = page.replace("{t}", "")
-    return page
-  page = page.replace("{t}", text)
-  return page
-
+  return render_template("signup.html", text=text)
+  
 @app.route("/sign", methods=["POST"])
 def sign():
   form = request.form 
@@ -49,16 +62,11 @@ def sign():
   text = f"You are signed up as {username}. Please Login!"
   return redirect(f"/login?t={text}")
 
+@csrf.include
 @app.route("/login", methods=["GET"])
 def login():
   text = request.args.get("t")
-  with open(f"{PATH}login.html", "r") as f:
-    page = f.read()
-  if text == None:
-    page = page.replace("{t}", "")
-    return page
-  page = page.replace("{t}", text)
-  return page
+  return render_template("login.html", text=text)
 
 @app.route("/log", methods=["POST"])
 def log():
@@ -90,7 +98,7 @@ def log():
 """@app.route("/recover", methods=["GET"])
 def recover_password():
   pass"""
-
+@csrf.exempt
 @app.route("/price_add", methods=['POST'])
 def price_add():
   if session.get('logged_in'):
@@ -100,12 +108,16 @@ def price_add():
   form = request.form
   url = form.get("url")
   bundle = form.get("bundle")
+  print(bundle)
+  username = session.get("username")
   if bundle == None:
+    bundle = False
+    name, price, image_url = scrape(url, bundle)
     bundle = "Not a Bundle"
-    name, price = scrape(url, bundle)
   else:
+    bundle = True
+    name, price, image_url = scrape(url, bundle)
     bundle = "Bundle"
-    name, price = scrape(url, bundle)
   matches = db.prefix("game")
   for match in matches:
     if db[match]["game_name"] == None:
@@ -114,7 +126,7 @@ def price_add():
       text = "Game Already Added! Try another URL!"
       return redirect(f"/game_list?t={text}")
   game_key = "game" + str(random.randint(100_000_000, 999_999_999))
-  db[game_key] = {"game_name": name, "price": price, "url": url, "username": session.get("username"), "bundle": bundle}
+  db[game_key] = {"game_name": name, "price": price, "url": url, "username": username, "bundle": bundle, "image_url": image_url}
   text = f"{name} Added!"
   return redirect(f"/game_list?t={text}")
 
@@ -151,6 +163,18 @@ def game_list():
     page = page.replace("{t}", text)
   return page
 
+@app.route("/admin")
+def admin():
+  if session.get("logged_in"):
+    if session.get("admin"):
+      pass
+    else:
+      text = "You are not an Admin!"
+      return redirect(f"/game_list?t={text}")
+  else:
+    text = "You are not logged in!"
+    return redirect(f"/login?t={text}")
+
 @app.route("/logout")
 def logout():
   if session.get('logged_in'):
@@ -159,7 +183,13 @@ def logout():
     session.pop("admin", None)
     return redirect("/")
   else:
-    return "Error, not logged in!"
+    text = "Error, not logged in!"
+    return redirect(f"/login?t={text}")
+
+schedule.every().day.at("18:00").do(compare)
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=81)
+  app.run(host='0.0.0.0', port=81)
+  while True:
+    schedule.run_pending()
+    time.sleep(5)

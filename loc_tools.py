@@ -3,7 +3,7 @@ import requests, random, hashlib, string, os
 from replit import db
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-import smtplib, time, schedule
+import smtplib
 
 PATH = "static/html/"
 
@@ -11,6 +11,8 @@ def scrape(url, bundle=False):
   headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
   r = requests.get(url, headers=headers)
   soup = BeautifulSoup(r.text, "html.parser")
+  image = soup.find("link", rel="image_src").get("href")
+  image_url = image.split("?t=")[0]
   if bundle:
     #name = <h2 class="pageheader">
     #price = <div class="discount_final_price">
@@ -22,13 +24,12 @@ def scrape(url, bundle=False):
     game_name = soup.find("div", class_="apphub_AppName")
     #game price = <div class="game_purchase_price price">
     game_price = soup.find("div", class_="game_purchase_price price")
-    #TODO: Scrape Game Image
     if game_price == None:
       game_price = "Not for Sale"
-      return game_name.text.strip(), game_price
+      return game_name.text.strip(), game_price, image_url
     else:
-      return game_name.text.strip(), game_price.text.strip()
-
+      return game_name.text.strip(), game_price.text.strip(), image_url
+  
 def compare():
   matches = db.prefix("game")
   for match in matches:
@@ -38,15 +39,15 @@ def compare():
       bundle = False
     else:
       bundle = True
-    n, new_price = scrape(url, bundle)
+    name, new_price, image_url = scrape(url, bundle)
     new_price = float(new_price[1:])
     old_price = float(db[match]["price"][1:])
-    #TODO: Ability to set percent change target
+    
     percent_change = (new_price - old_price) / old_price * 100
-    #TODO: Account for games that aren't for sale
+    
     if new_price != old_price:
       if percent_change <= -10:
-        #TODO: Keep old price and percent change in the game DB entry
+        
         username = db[match]["username"]
         user_list = db.prefix("user")
         for user in user_list:
@@ -54,15 +55,25 @@ def compare():
             email = db[user]["email"]
           else:
             continue
-        sendMail(email, old_price, new_price, url, n)
+            db[match]["old_price"] = f"${old_price}"
+            db[match]["price"] = f"${new_price}"
+            db[match]["percent_change"] = f"{percent_change}"
+        print(f"{name} - {new_price} - decreased by {percent_change}%")
+        sendMail(email, old_price, new_price, percent_change, url, name, image_url)
       else:
+        db[match]["old_price"] = f"${old_price}"
         db[match]["price"] = f"${new_price}"
+        db[match]["percent_change"] = f"{percent_change}"
+        print(f"{name} Price increased by {percent_change}%")
     else:
+      print(f"{name} Price not changed")
       continue
-def sendMail(recipent, old, new, per, url, name):
+
+def sendMail(recipent, old, new, per, url, name, image_url):
   with open(f"{PATH}email_template.html", "r") as f:
     template = f.read()
-  template = template.replace("{date}", per)
+  template = template.replace("{image_url}", image_url)
+  template = template.replace("{percent_change}", per)
   template = template.replace("{desc}", name)
   template = template.replace("{link}", url)
   template = template.replace("{old}", old)

@@ -49,3 +49,6 @@ input:hover{
   left: 0;
   padding: 5px 16px;
 }
+.short {
+  width: 25%;
+}

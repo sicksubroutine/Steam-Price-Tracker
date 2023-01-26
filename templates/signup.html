@@ -13,7 +13,9 @@
     Sign Up Page
   </h3><br>
   <div class="box-shadow">
-  <span class="red_text">{t}</span>
+  {% if text %}
+  <span class="red_text">{{ text }}</span><br>
+  {% endif %}
   <form id="form" method = "post" action = "/sign">
     <p>Username: <span class="red_text">*</span><input type="text" name="username" required/></p>
     <p>Email: <span class="red_text">*</span><input type="email" name="email" required/></p>
@@ -21,6 +23,7 @@
     <p>
       Confirm Password: <span class="red_text">*</span><input id="confirm" type="password" name="confirm" required/></p>
     </p>
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <p>
       <span id="error_message" class="red_text">Error: Passwords do not match!</span>
       <button class="btn" type="submit" class="btn">Sign Up</button>
