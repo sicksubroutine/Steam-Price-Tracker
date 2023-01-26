@@ -2,14 +2,13 @@ import os, random
 from replit import db
 from flask import Flask, request, session, redirect
 from loc_tools import scrape, saltGet, saltPass
-
-#libs not used yet
-#
+#TODO: Implement CSRF protection
+#TODO: Implement rate limiting on password requests
+#TODO: Implement password reset
 
 app = Flask(__name__, static_url_path='/static')
 
 app.secret_key = os.environ['sessionKey']
-
 PATH = "static/html/"
 
 @app.route("/")
@@ -49,7 +48,7 @@ def sign():
   db[user_num] = {"username": username, "password": password, "salt": salt, "email": email, "admin": False}
   text = f"You are signed up as {username}. Please Login!"
   return redirect(f"/login?t={text}")
-  
+
 @app.route("/login", methods=["GET"])
 def login():
   text = request.args.get("t")
@@ -87,6 +86,10 @@ def log():
     else:
       text = "Invalid Username or Password!"
       return redirect(f"/login?t={text}")
+
+"""@app.route("/recover", methods=["GET"])
+def recover_password():
+  pass"""
 
 @app.route("/price_add", methods=['POST'])
 def price_add():

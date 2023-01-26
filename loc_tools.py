@@ -46,6 +46,7 @@ def compare():
     #TODO: Account for games that aren't for sale
     if new_price != old_price:
       if percent_change <= -10:
+        #TODO: Keep old price and percent change in the game DB entry
         username = db[match]["username"]
         user_list = db.prefix("user")
         for user in user_list:
@@ -54,8 +55,6 @@ def compare():
           else:
             continue
         sendMail(email, old_price, new_price, url, n)
-      elif percent_change <= -1:
-        db[match]["price"] = f"${new_price}"
       else:
         db[match]["price"] = f"${new_price}"
     else:
