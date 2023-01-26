@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    .dark {
+      background-color: black;
+      color: white;
+    }
+    .red {
+      color: red;
+    }
+    a {
+      color: red;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+      color: blue;
+    }
+  </style>
+  <title>Price Change Alert!</title>
+</head>
+<body>
+  <div class="dark">
+    <center>
+      <h2>Your Steam Game has lowered in price!</h2>
+      <p><span class="red">Game:</span> {desc}</p>
+      <p><span class="red">Old:</span> {old}</p>
+      <p><span class="red">New:</span> {new}</p>
+      <p><span class="red">Price Change:</span> {percent_change}</p>
+      <p><a href='{link}'>Access it here!</a></p>
+    </center>
+  </div>
+  
+</body>
+</html>

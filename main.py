@@ -4,9 +4,7 @@ from flask import Flask, request, session, redirect
 from loc_tools import scrape, saltGet, saltPass
 
 #libs not used yet
-#from email.mime.multipart import MIMEMultipart
-#from email.mime.text import MIMEText
-#import smtplib, time, schedule
+#
 
 app = Flask(__name__, static_url_path='/static')
 
@@ -74,8 +72,7 @@ def log():
       salt = db[match]["salt"]
       password = saltPass(password, salt)
     else:
-      text = "Invalid Username or Password!"
-      return redirect(f"/login?t={text}")
+      continue
     if db[match]["username"] == username and db[match]["password"] == password and db[match]["admin"] == True:
       session["username"] = username
       session["admin"] = True
@@ -101,10 +98,10 @@ def price_add():
   url = form.get("url")
   bundle = form.get("bundle")
   if bundle == None:
-    bundle = False
+    bundle = "Not a Bundle"
     name, price = scrape(url, bundle)
   else:
-    bundle = True
+    bundle = "Bundle"
     name, price = scrape(url, bundle)
   matches = db.prefix("game")
   for match in matches:
