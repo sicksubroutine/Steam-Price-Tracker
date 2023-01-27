@@ -50,12 +50,16 @@ def compare():
     name, new_price, image_url, for_sale = scrape(url, bundle)
     if bool(for_sale) and db[match]["for_sale"] == "False":
       pass
+      print(f"{db[match]['game_name']} is now for sale!")
       #TODO: send mail that game is now for sale
     new_price = float(new_price[1:])
     old_price = float(db[match]["price"][1:])
     percent_change = (new_price - old_price) / old_price * 100
+    target_percent = db[match]["target_percent"]
+    if target_percent == None:
+      target_percent = "-15"
     if new_price != old_price:
-      if percent_change <= -10:
+      if percent_change <= target_percent:
         username = db[match]["username"]
         user_list = db.prefix("user")
         for user in user_list:

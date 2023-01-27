@@ -4,8 +4,6 @@ from flask import Flask, request, session, redirect, render_template
 from loc_tools import scrape, saltGet, saltPass, compare
 from flask_seasurf import SeaSurf
 
-#TODO: Ability to set percent change target
-#TODO: Ability to set game price target
 #TODO: Account for games that aren't for sale
 #TODO: Implement password reset
 #TODO: Implement rate limiting on password requests/account creation
@@ -21,12 +19,16 @@ csrf.init_app(app)
 app.secret_key = os.environ['sessionKey']
 PATH = "static/html/"
 
-"""
-#game testing area
+
+"""#game testing area
 matches = db.prefix("game")
 for match in matches:
-"""
   
+  if db[match]["for_sale"] == "True":
+    if db[match]["game_name"] == "HYPER DEMON":
+      del db[match]["target_change"]
+      print(db[match])"""
+    
 """
 #user testing area
 matches = db.prefix("user")
@@ -168,6 +170,7 @@ def price_add():
     "old_price": "$0",
     "percent_change": "0",
     "for_sale": for_sale,
+    "target_percent": "-10",
     "date_added": current_time.strftime("%m-%d-%Y %I:%M:%S %p")
   }
   text = f"{name} Added!"
@@ -193,13 +196,11 @@ def game_list():
       l = l.replace("{url}", db[match]["url"])
       l = l.replace("{image_url}", db[match]["image_url"])
       l = l.replace("{old}", db[match]["old_price"])
-      l = l.replace("{percent_change}", db[match]["percent_change"])
       l = l.replace("{game_name}", db[match]["game_name"])
       l = l.replace("{game_price}", db[match]["price"])
-      l = l.replace("{old_price}", "")
-      l = l.replace("{percent_change}",
-                    "<span class='red'>25% Decrease</span>")
+      l = l.replace("{percent_change}", db[match]["percent_change"])
       l = l.replace("{bundle}", db[match]["bundle"])
+      l = l.replace("{target_price}", db[match]["target_price"])
       result += l
     else:
       continue
@@ -258,6 +259,40 @@ def delete():
   else:
     text = "You are not an Admin!"
     return redirect(f"/?t={text}")
+    
+@csrf.exempt
+@app.route("/price_target", methods=['POST'])
+def price_target():
+  if session.get("logged_in"):
+    form = request.form
+    username = session.get("username")
+    game = form.get("game")
+    target_price = form.get("target")
+    if "$" in target_price:
+      target_price = target_price.replace("$", "")
+    if target_price == "":
+      text = "You must enter a target price!"
+      return redirect(f"/game_list?t={text}")
+    else:
+      matches = db.prefix("game")
+      for match in matches:
+        if db[match]["game_name"] == game and db[match]["username"] == username:
+          price = db[match]["price"]
+          price = float(price.replace("$", ""))
+          target_price = float(target_price)
+          if target_price > price:
+            text = f"{game}'s target price needs to be below ${price}!"
+            return redirect(f"/game_list?t={text}")
+          else:
+            text = f"{game}'s target price is now ${target_price}!"
+            target_percent = round((target_price - price) / (price * 100), 2)
+            db[match]["target_percent"] = f"{target_percent}"
+            db[match]["target_price"] = f"${target_price}"
+            return redirect(f"/game_list?t={text}")
+    return f"{target_price} for {game}"
+  else:
+    text = "You are not logged in!"
+    return redirect(f"/login?t={text}")
 
 @app.route("/delete_game", methods=["GET"])
 def delete_game():
