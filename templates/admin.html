@@ -9,6 +9,7 @@
 </head>
 <body><center>
   <a href="/logout"><button class ="btn" id="back">Logout</button></a>
+  <a href="/game_list"><button class ="btn" id="back">Game List</button></a>
   <!--{t}--><br>
   <div class="box-shadow">
     {% if text %}
@@ -17,7 +18,7 @@
   <h2>Admin Panel</h2>
   <h3>Logged in as {{user}}</h3>
   <hr class="short">
-  User List:
+  <h1>User List</h1>
   <hr>
   {% for user in user_list %}
     Username: <span class="red">{{ user.username }}</span><br>
