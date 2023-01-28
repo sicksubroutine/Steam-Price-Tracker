@@ -4,7 +4,7 @@ from flask import Flask, request, session, redirect, render_template
 from loc_tools import scrape, saltGet, saltPass, compare
 from flask_seasurf import SeaSurf
 
-#TODO: Account for games that aren't for sale
+#TODO: Create differet "sections" on the game list (bundles, games not for sale, and so on)
 #TODO: Implement password reset
 #TODO: Implement rate limiting on password requests/account creation
 #TODO: Recovery Token Expiration System
@@ -19,16 +19,13 @@ csrf.init_app(app)
 app.secret_key = os.environ['sessionKey']
 PATH = "static/html/"
 
-
 """#game testing area
 matches = db.prefix("game")
 for match in matches:
-  
   if db[match]["for_sale"] == "True":
-    if db[match]["game_name"] == "HYPER DEMON":
-      del db[match]["target_change"]
+    if db[match]["game_name"] == "Rain World":
       print(db[match])"""
-    
+
 """
 #user testing area
 matches = db.prefix("user")
@@ -141,7 +138,6 @@ def price_add():
   form = request.form
   url = form.get("url")
   bundle = form.get("bundle")
-  print(bundle)
   username = session.get("username")
   if bundle == None:
     bundle = False
@@ -151,6 +147,10 @@ def price_add():
     bundle = True
     name, price, image_url, for_sale = scrape(url, bundle)
     bundle = "Bundle"
+  price_t = price
+  price_t = float(price_t[1:])
+  target_price = round(price_t - (price_t * 0.15), 2)
+  target_price = f"${target_price:.2f}"
   current_time = datetime.datetime.now()
   matches = db.prefix("game")
   for match in matches:
@@ -171,6 +171,7 @@ def price_add():
     "percent_change": "0",
     "for_sale": for_sale,
     "target_percent": "-10",
+    "target_price": target_price,
     "date_added": current_time.strftime("%m-%d-%Y %I:%M:%S %p")
   }
   text = f"{name} Added!"
@@ -197,7 +198,7 @@ def game_list():
       l = l.replace("{image_url}", db[match]["image_url"])
       l = l.replace("{old}", db[match]["old_price"])
       l = l.replace("{game_name}", db[match]["game_name"])
-      l = l.replace("{game_price}", db[match]["price"])
+      l = l.replace("{game_price}", db[match]['price'])
       l = l.replace("{percent_change}", db[match]["percent_change"])
       l = l.replace("{bundle}", db[match]["bundle"])
       l = l.replace("{target_price}", db[match]["target_price"])
@@ -259,7 +260,8 @@ def delete():
   else:
     text = "You are not an Admin!"
     return redirect(f"/?t={text}")
-    
+
+
 @csrf.exempt
 @app.route("/price_target", methods=['POST'])
 def price_target():
@@ -294,27 +296,25 @@ def price_target():
     text = "You are not logged in!"
     return redirect(f"/login?t={text}")
 
+
 @app.route("/delete_game", methods=["GET"])
 def delete_game():
   if session.get("logged_in"):
     game = request.args.get("d")
     user = session.get("username")
     matches = db.prefix("game")
+    print(game)
     for match in matches:
-      if db[match]["username"] == user:
-        if db[match]["game_name"] == game:
+      if db[match]["game_name"] == game and db[match]["username"] == user:
           del db[match]
           text = f"{game} Deleted!"
           return redirect(f"/game_list?t={text}")
-        else:
-          continue
-      else:
-        text = f"{game} Not Found!"
-        return redirect(f"/game_list?t={text}")
+    text = f"{game} Not Found!"
+    return redirect(f"/game_list?t={text}")
   else:
     text = "You are not logged in!"
     return redirect(f"/login?t={text}")
-      
+
 
 @app.route("/logout")
 def logout():
@@ -330,7 +330,6 @@ def logout():
 
 #compare()
 schedule.every().day.at("18:00").do(compare)
-
 
 if __name__ == "__main__":
   app.run(host='0.0.0.0', port=81)

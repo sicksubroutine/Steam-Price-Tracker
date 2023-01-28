@@ -24,6 +24,10 @@ def scrape(url, bundle):
     game_name = soup.find("div", class_="apphub_AppName")
     #game price = <div class="game_purchase_price price">
     game_price = soup.find("div", class_="game_purchase_price price")
+    section = soup.find("div", class_="game_purchase_action")
+    discount = section.find("div", class_="discount_final_price")
+    if discount != None:
+      game_price = discount
     if game_price == None:
       not_for_sale = soup.find("div", class_="game_area_comingsoon game_area_bubble")
       when = not_for_sale.find_all("span")
@@ -31,7 +35,8 @@ def scrape(url, bundle):
       year = when[1].text
       for_sale = "False"
       game_price = f"Not for Sale until {year}"
-      return game_name.text.strip(), game_price, image_url, for_sale
+      game_name = game_name.text.strip()
+      return game_name, game_price, image_url, for_sale
     if not "$" in game_price.text.strip():
       game_price = soup.find_all("div", class_="game_purchase_price price")
       game_price = game_price[1]
