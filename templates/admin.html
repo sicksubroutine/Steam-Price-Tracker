@@ -8,16 +8,17 @@
   <title>Admin Panel</title>
 </head>
 <body><center>
+  <div class="game-list-top">
   <a href="/logout"><button class ="btn" id="back">Logout</button></a>
   <a href="/game_list"><button class ="btn" id="back">Game List</button></a>
-  <!--{t}--><br>
+  <br>
   <div class="box-shadow">
     {% if text %}
   <span class="red_text">{{ text }}</span><br>
     {% endif %}
   <h2>Admin Panel</h2>
   <h3>Logged in as {{user}}</h3>
-  <hr class="short">
+  </div>
   <h1>User List</h1>
   <hr>
   {% for user in user_list %}

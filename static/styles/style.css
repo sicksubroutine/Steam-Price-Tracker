@@ -103,3 +103,24 @@ input:hover{
 .game_link:hover {
   text-decoration: underline;
 }
+.game-container {
+  display: grid; 
+  grid-template-columns: repeat(3, 1fr); 
+  grid-gap: 5px;
+}
+.game-box {
+  border: 2px solid #8f8f8f;
+}
+.game-list-top {
+  width: 35%;
+  border-radius: 25px;
+  background: linear-gradient(90deg, rgba(25,25,25,1) 0%, rgba(100,100,100,0.75) 50%);
+  border: 2px solid #8f8f8f;
+}
+.login_h3 {
+  color: white;
+}
+
+#game-list-alpha {
+  font-size: 1.25em;
+}

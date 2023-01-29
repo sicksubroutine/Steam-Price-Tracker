@@ -16,7 +16,6 @@ csrf = SeaSurf()
 csrf.init_app(app)
 app.secret_key = os.environ['sessionKey']
 PATH = "static/html/"
-
 """
 #game testing area
 matches = db.prefix("game")
@@ -25,7 +24,6 @@ for match in matches:
     if db[match]["game_name"] == "Bloodwash":
       db[match]["price"] = "$12.99"
 """
-
 """
 #user testing area
 matches = db.prefix("user")
@@ -33,13 +31,13 @@ for match in matches:
   if db[match]["username"] == "test_account":
     db[match]["last_login"] = "Not yet Logged in"
 """
-
 """
 #token testing area
 matches = db.prefix("token")
 for match in matches:
   print(db[match])
 """
+
 
 @app.route("/", methods=["GET"])
 def index():
@@ -99,7 +97,7 @@ def login():
   return render_template("login.html", text=text)
 
 
-@app.route("/log", methods=["POST"]) 
+@app.route("/log", methods=["POST"])
 def log():
   form = request.form
   username = form.get("username")
@@ -133,6 +131,7 @@ def log():
     else:
       text = "Invalid Username or Password!"
       return redirect(f"/login?t={text}")
+
 
 def confirm_email(username) -> None:
   db_key = gen_unique_token(username)
@@ -173,9 +172,11 @@ def confirm():
       text = "Invalid Token!"
       return redirect(f"/login?t={text}")
 
+
 @app.route("/pass_recover", methods=["GET"])
 def pass_recover():
   pass
+
 
 @csrf.exempt
 @app.route("/price_add", methods=['POST'])
@@ -339,7 +340,7 @@ def price_target():
             text = f"{game}'s target price is now ${target_price}!"
             target_percent = round((target_price - price) / (price * 100), 2)
             db[match]["target_percent"] = f"{target_percent}"
-            db[match]["target_price"] = f"${target_price}"
+            db[match]["target_price"] = f"${target_price:.2f}"
             return redirect(f"/game_list?t={text}")
     return f"{target_price} for {game}"
   else:
@@ -378,8 +379,7 @@ def logout():
     return redirect(f"/login?t={text}")
 
 
-#compare()
-schedule.every().day.at("18:00").do(compare)
+schedule.every(3).hours.do(compare)
 
 if __name__ == "__main__":
   app.run(host='0.0.0.0', port=81)

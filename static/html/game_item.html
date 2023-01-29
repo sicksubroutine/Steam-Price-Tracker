@@ -1,8 +1,11 @@
-<a href="{url}" class="game_link" target="_blank"><img src="{image_url}" width="100px"><br>
+<center><div class="game-box">
+  <a href="{url}" class="game_link" target="_blank"><img src="{image_url}" width="100px"><br>
 <span class="blue">{game_name}</span></a><br> Current Price: <span class="red">{game_price}</span><br>
 Old Price: <span class="red">{old}</span> - Price Change:<span class="red"> {percent_change}%</span><br>
 Bundle: <span class="red">{bundle}</span><br>
 Target Price: <span class="red">{target_price}</span><br>
-<form action="/price_target" method="POST"><input type="number" class="target" name="target" placeholder="Target Price"><input type="hidden" name="game" value="{game_name}"> <input type="submit" class="btn2" value="Submit"> </form>
+<form action="/price_target" method="POST"><input type="number" step="0.01" class="target" name="target" placeholder="$ Target Price"><input type="hidden" name="game" value="{game_name}"> <input type="submit" class="btn2" value="Submit"> </form>
 Delete Game: <a href="/delete_game?d={game_name}" class="game_link" onclick="return confirm('Are you sure you want to delete this game?');">❌</a>
-<hr>
+  <br>
+</div>
+</center>
