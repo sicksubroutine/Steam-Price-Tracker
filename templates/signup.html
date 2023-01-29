@@ -9,23 +9,21 @@
 </head>
 
 <body>
-  <h3>
-    Sign Up Page
-  </h3><br>
-  <div class="box-shadow">
+  <h3>Sign Up Page</h3>
   {% if text %}
   <span class="red_text">{{ text }}</span><br>
   {% endif %}
+  <div class="box-shadow">
   <form id="form" method = "post" action = "/sign">
-    <p>Username: <span class="red_text">*</span><input type="text" name="username" required/></p>
-    <p>Email: <span class="red_text">*</span><input type="email" name="email" required/></p>
-    <p>Password: <span class="red_text">*</span><input id="password" type="password" name="password" required/></p>   
+    <p>Username: <span class="red">*</span><input type="text" name="username" required/></p>
+    <p>Email: <span class="red">*</span><input type="email" name="email" required/></p>
+    <p>Password: <span class="red">*</span><input id="password" type="password" name="password" required/></p>   
     <p>
-      Confirm Password: <span class="red_text">*</span><input id="confirm" type="password" name="confirm" required/></p>
+      Confirm Password: <span class="red">*</span><input id="confirm" type="password" name="confirm" required/></p>
     </p>
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <p>
-      <span id="error_message" class="red_text">Error: Passwords do not match!</span>
+      <span id="error_message" class="red">Error: Passwords do not match!</span>
       <button class="btn" type="submit" class="btn">Sign Up</button>
     </p>
   </form>

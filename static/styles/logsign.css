@@ -33,6 +33,15 @@ input {
 }
 
 .red_text {
+  position: absolute;
+  top: 15%;
+  left: 50%;
+  transform: translate(-50%, 0%);
+  font-weight: bold;
+  color: red;
+}
+
+.red {
   color: red;
 }
 

@@ -1,17 +1,15 @@
 import os, random, time, schedule, datetime
 from replit import db
 from flask import Flask, request, session, redirect, render_template
-from loc_tools import scrape, saltGet, saltPass, compare
+from loc_tools import scrape, saltGet, saltPass, compare, confirm_mail, gen_unique_token, token_expiration
 from flask_seasurf import SeaSurf
 
 #TODO: Create differet "sections" on the game list (bundles, games not for sale, and so on)
 #TODO: Implement password reset
 #TODO: Implement rate limiting on password requests/account creation
-#TODO: Recovery Token Expiration System
 #TODO: Add error handling (try, except)
-#TODO: Add Email Confirmation
 #TODO: Convert as many routes to render_template as possible
-#TODO: Add price change date
+#TODO: Add sending of a confirmation email after token exipration
 
 app = Flask(__name__, static_url_path='/static')
 csrf = SeaSurf()
@@ -19,20 +17,29 @@ csrf.init_app(app)
 app.secret_key = os.environ['sessionKey']
 PATH = "static/html/"
 
-"""#game testing area
+"""
+#game testing area
 matches = db.prefix("game")
 for match in matches:
   if db[match]["for_sale"] == "True":
-    if db[match]["game_name"] == "Rain World":
-      print(db[match])"""
+    if db[match]["game_name"] == "Bloodwash":
+      db[match]["price"] = "$12.99"
+"""
 
 """
 #user testing area
 matches = db.prefix("user")
 for match in matches:
-  db[match]["email_confirmed"] = "True"
+  if db[match]["username"] == "test_account":
+    db[match]["last_login"] = "Not yet Logged in"
 """
 
+"""
+#token testing area
+matches = db.prefix("token")
+for match in matches:
+  print(db[match])
+"""
 
 @app.route("/", methods=["GET"])
 def index():
@@ -52,7 +59,7 @@ def signup():
 @app.route("/sign", methods=["POST"])
 def sign():
   form = request.form
-  username = form.get("username")
+  username = form.get("username").lower()
   salt = saltGet()
   password = saltPass(form.get("password"), salt)
   email = form.get("email")
@@ -74,9 +81,11 @@ def sign():
     "email": email,
     "admin": False,
     "creation_date": account_creation,
-    "email_confirmed": "False"
+    "email_confirmed": False,
+    "last_login": "Never Logged In",
   }
-  text = f"You are signed up as {username}. Please Login!"
+  confirm_email(username)
+  text = f"You are signed up as {username}. Please confirm your email address before logging in!"
   return redirect(f"/login?t={text}")
 
 
@@ -90,7 +99,7 @@ def login():
   return render_template("login.html", text=text)
 
 
-@app.route("/log", methods=["POST"])
+@app.route("/log", methods=["POST"]) 
 def log():
   form = request.form
   username = form.get("username")
@@ -103,6 +112,9 @@ def log():
       password = saltPass(password, salt)
     else:
       continue
+    if db[match]["email_confirmed"] == False:
+      text = "Email not confirmed! Please confirm your email address!"
+      return redirect(f"/login?t={text}")
     if db[match]["username"] == username and db[match][
         "password"] == password and db[match]["admin"] == True:
       db[match]["last_login"] = current_time.strftime("%m-%d-%Y %I:%M:%S %p")
@@ -122,11 +134,48 @@ def log():
       text = "Invalid Username or Password!"
       return redirect(f"/login?t={text}")
 
+def confirm_email(username) -> None:
+  db_key = gen_unique_token(username)
+  matches = db.prefix("token")
+  for match in matches:
+    if db_key == match:
+      confirm_mail(db[match]["email"], db[match]["token"], "confirm")
 
-"""@app.route("/recover", methods=["GET"])
-def recover_password():
-  pass"""
 
+@app.route("/confirm", methods=["GET"])
+def confirm():
+  token = request.args.get("t")
+  type = request.args.get("ty")
+  users = db.prefix("user")
+  matches = db.prefix("token")
+  for match in matches:
+    if token == db[match]["token"]:
+      username = db[match]["username"]
+      if token_expiration(token) == False:
+        db[match]["token_spent"] = True
+        for user in users:
+          if db[user]["username"] == username:
+            if type == "confirm":
+              db[user]["email_confirmed"] = True
+              text = "Email Confirmed!"
+              return redirect(f"/login?t={text}")
+            elif type == "recovery":
+              text = "Please update your password!"
+              return redirect(f"/pass_recover?t={text}")
+      elif token_expiration(token):
+        db[match]["token_spent"] = True
+        text = "Token Expired!"
+        return redirect(f"/login?t={text}")
+      else:
+        text = "wtf did you do?"
+        return redirect(f"/login?t={text}")
+    else:
+      text = "Invalid Token!"
+      return redirect(f"/login?t={text}")
+
+@app.route("/pass_recover", methods=["GET"])
+def pass_recover():
+  pass
 
 @csrf.exempt
 @app.route("/price_add", methods=['POST'])
@@ -233,7 +282,8 @@ def admin():
         "email": db[match]["email"],
         "admin": db[match]["admin"],
         "last_login": db[match]["last_login"],
-        "creation_date": db[match]["creation_date"]
+        "creation_date": db[match]["creation_date"],
+        "email_confirmed": str(db[match]["email_confirmed"])
       })
     text = request.args.get("t")
     return render_template("admin.html",
@@ -306,9 +356,9 @@ def delete_game():
     print(game)
     for match in matches:
       if db[match]["game_name"] == game and db[match]["username"] == user:
-          del db[match]
-          text = f"{game} Deleted!"
-          return redirect(f"/game_list?t={text}")
+        del db[match]
+        text = f"{game} Deleted!"
+        return redirect(f"/game_list?t={text}")
     text = f"{game} Not Found!"
     return redirect(f"/game_list?t={text}")
   else:

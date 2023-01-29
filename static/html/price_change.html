@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    .dark {
+      background-color: black;
+      color: white;
+    }
+    .red {
+      color: red;
+    }
+    a {
+      color: red;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+      color: blue;
+    }
+  </style>
+  <title>Price Change Alert!</title>
+</head>
+<body>
+  <div class="dark">
+    <center>
+      <img src="{image_url}">
+      <h2>{desc} has lowered in price!</h2>
+      Old Price: <span class="red">${old}</span><br>
+      New Price: <span class="red">${new}</span><br>
+      Change: <span class="red">{percent_change}%</span><br>
+      <a href='{link}'>Access it here!</a>
+    </center>
+  </div>
+  
+</body>
+</html>

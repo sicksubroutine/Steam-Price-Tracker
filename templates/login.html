@@ -8,17 +8,17 @@
 </head>
 
 <body>
-  <h3>
-    Login Page
-  </h3><br>
-  <div class="box-shadow">
-    {% if text %}
+  <h3>Login Page</h3>
+  {% if text %}
   <span class="red_text">{{ text }}</span><br>
-    {% endif %}
+  {% endif %}
+  <div class="box-shadow">
+  <br>
+  
   <form method = "post" action = "/log">
     
-    <p>Username: <span class="red_text">*</span><input type="text" name="username" required/></p>
-    <p>Password: <span class="red_text">*</span><input type="password" name="password" required/></p>
+    <p>Username: <span class="red">*</span><input type="text" name="username" required/></p>
+    <p>Password: <span class="red">*</span><input type="password" name="password" required/></p>
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <p>
       <button class="btn" type="submit" class="btn">Login</button>
