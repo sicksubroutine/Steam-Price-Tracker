@@ -124,3 +124,8 @@ input:hover{
 #game-list-alpha {
   font-size: 1.25em;
 }
+
+#error {
+  font-size: 1.50em;
+  font-weight: bold;
+}

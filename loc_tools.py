@@ -7,6 +7,8 @@ import smtplib
 
 PATH = "static/html/"
 
+RED = "\33[31m"
+NONE = "\33[0m"
 
 def scrape(url, bundle) -> str:
   r = requests.get(url)
@@ -48,21 +50,18 @@ def scrape(url, bundle) -> str:
 
 
 def purge_old_tokens():
-  now = datetime.datetime.now()
-  later = now + datetime.timedelta(minutes=30)
-  later = later.strftime("%m-%d-%Y %I:%M:%S %p")
   matches = db.prefix("token")
+  count = 0
   for match in matches:
-    t = db[match]["token_expiration_time"]
-    t = datetime.datetime.strptime(t, "%m-%d-%Y %I:%M:%S %p")
     if db[match]["token_spent"] == True:
       del db[match]
-    #if now > t:
-    #  del db[match]
+      count +=1
+      print("Token Purged")
+  print(f"{RED}{count} Tokens Purged{NONE}")
 
 
 def compare() -> None:
-  purge_old_tokens()
+  count = 0
   matches = db.prefix("game")
   for match in matches:
     url = db[match]["url"]
@@ -83,6 +82,7 @@ def compare() -> None:
     if target_percent == None:
       target_percent = float(-15)
     if new_price != old_price:
+      count +=1
       if percent_change <= target_percent:
         username = db[match]["username"]
         user_list = db.prefix("user")
@@ -94,18 +94,18 @@ def compare() -> None:
         db[match]["old_price"] = f"${old_price}"
         db[match]["price"] = f"${new_price}"
         db[match]["percent_change"] = f"{percent_change}"
-        print(f"{name} - {new_price} - decreased by {percent_change}%")
+        print(f"{RED}{name} - {new_price} - decreased by {percent_change}%{NONE}")
         price_change_mail(email, old_price, new_price, percent_change, url,
                           name, image_url)
       else:
         db[match]["old_price"] = f"${old_price}"
         db[match]["price"] = f"${new_price}"
         db[match]["percent_change"] = f"{percent_change}"
-        print(f"{name} Price increased by {percent_change}%")
+        print(f"{RED}{name} Price increased by {percent_change}%{NONE}")
     else:
       print(f"{name} Price not changed")
       continue
-
+  print(f"{RED}{count} Prices Updated{NONE}")
 
 def price_change_mail(recipent, old, new, per, url, name, image_url) -> None:
   with open(f"{PATH}price_change.html", "r") as f:
@@ -129,6 +129,7 @@ def price_change_mail(recipent, old, new, per, url, name, image_url) -> None:
   msg['Subject'] = "Steam Tracker Price Change!"
   msg.attach(MIMEText(template, 'html'))
   s.send_message(msg)
+  print(f"{RED}{recipent} has been emailed a price change email.{NONE}")
   del msg
 
 
@@ -166,7 +167,7 @@ def confirm_mail(recipent, token, type) -> None:
   msg['Subject'] = "Confirmation Email"
   msg.attach(MIMEText(template, 'html'))
   s.send_message(msg)
-  print(f"{recipent} has been emailed a confirmation email.")
+  print(f"{RED}{recipent} has been emailed a confirmation email.{NONE}")
   del msg
 
 
@@ -187,7 +188,7 @@ def tokenGet() -> str:
 
 
 def gen_unique_token(username) -> str:
-  token = tokenGet()
+  token = tokenGet().lower()
   # create a token creation time
   current_time_date = datetime.datetime.now()
   # set expiration for 30 minutes
@@ -221,3 +222,8 @@ def token_expiration(token) -> bool:
         return True
       elif now < expiry_time:
         return False
+
+def chores():
+  purge_old_tokens()
+  compare()
+  print("\33[31m====CHORES=RUN=COMPLETE====\33[0m")

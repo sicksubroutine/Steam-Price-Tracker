@@ -1,8 +1,9 @@
 import os, random, time, schedule, datetime
 from replit import db
 from flask import Flask, request, session, redirect, render_template
-from loc_tools import scrape, saltGet, saltPass, compare, confirm_mail, gen_unique_token, token_expiration
+from loc_tools import scrape, saltGet, saltPass, chores, confirm_mail, gen_unique_token, token_expiration
 from flask_seasurf import SeaSurf
+import threading
 
 #TODO: Create differet "sections" on the game list (bundles, games not for sale, and so on)
 #TODO: Implement password reset
@@ -10,6 +11,7 @@ from flask_seasurf import SeaSurf
 #TODO: Add error handling (try, except)
 #TODO: Convert as many routes to render_template as possible
 #TODO: Add sending of a confirmation email after token exipration
+#TODO: Add a logging system
 
 app = Flask(__name__, static_url_path='/static')
 csrf = SeaSurf()
@@ -35,7 +37,7 @@ for match in matches:
 #token testing area
 matches = db.prefix("token")
 for match in matches:
-  print(db[match])
+  del db[match]
 """
 
 
@@ -98,39 +100,42 @@ def login():
 
 
 @app.route("/log", methods=["POST"])
-def log():
-  form = request.form
-  username = form.get("username")
-  password = form.get("password")
-  matches = db.prefix("user")
-  for match in matches:
-    current_time = datetime.datetime.now()
-    if db[match]["username"] == username:
-      salt = db[match]["salt"]
-      password = saltPass(password, salt)
-    else:
-      continue
-    if db[match]["email_confirmed"] == False:
-      text = "Email not confirmed! Please confirm your email address!"
-      return redirect(f"/login?t={text}")
-    if db[match]["username"] == username and db[match][
-        "password"] == password and db[match]["admin"] == True:
-      db[match]["last_login"] = current_time.strftime("%m-%d-%Y %I:%M:%S %p")
-      session["username"] = username
-      session["admin"] = True
-      session["logged_in"] = True
-      text = f"{db[match]['username']} (Admin!) Logged In!"
-      return redirect(f"/game_list?t={text}")
-    elif db[match]["username"] == username and db[match][
-        "password"] == password:
-      db[match]["last_login"] = current_time.strftime("%m-%d-%Y %I:%M:%S %p")
-      session["username"] = username
-      session["logged_in"] = True
-      text = f"{username} Logged In!"
-      return redirect(f"/game_list?t={text}")
-    else:
-      text = "Invalid Username or Password!"
-      return redirect(f"/login?t={text}")
+def log_in():
+  try:
+    form = request.form
+    username = form.get("username")
+    password = form.get("password")
+    matches = db.prefix("user")
+    for match in matches:
+      if db[match]["username"] == username:
+        current_time = datetime.datetime.now()
+        salt = db[match]["salt"]
+        password = saltPass(password, salt)
+        if db[match]["email_confirmed"] == False:
+          text = "Email not confirmed! Please confirm your email address!"
+          return redirect(f"/login?t={text}")
+        if db[match]["username"] == username and db[match][
+            "password"] == password and db[match]["admin"] == True:
+          db[match]["last_login"] = current_time.strftime(
+            "%m-%d-%Y %I:%M:%S %p")
+          session["username"] = username
+          session["admin"] = True
+          session["logged_in"] = True
+          text = f"{db[match]['username']} (Admin!) Logged In!"
+          return redirect(f"/game_list?t={text}")
+        elif db[match]["username"] == username and db[match][
+            "password"] == password:
+          db[match]["last_login"] = current_time.strftime(
+            "%m-%d-%Y %I:%M:%S %p")
+          session["username"] = username
+          session["logged_in"] = True
+          text = f"{username} Logged In!"
+          return redirect(f"/game_list?t={text}")
+    text = "Invalid login"
+    return redirect(f"/login?t={text}")
+  except:
+    text = "Invalid login"
+    return redirect(f"/login?t={text}")
 
 
 def confirm_email(username) -> None:
@@ -148,7 +153,7 @@ def confirm():
   users = db.prefix("user")
   matches = db.prefix("token")
   for match in matches:
-    if token == db[match]["token"]:
+    if token == db[match]["token"] and db[match]["token_spent"] == False:
       username = db[match]["username"]
       if token_expiration(token) == False:
         db[match]["token_spent"] = True
@@ -168,9 +173,8 @@ def confirm():
       else:
         text = "wtf did you do?"
         return redirect(f"/login?t={text}")
-    else:
-      text = "Invalid Token!"
-      return redirect(f"/login?t={text}")
+  text = "Error! Invalid Token!"
+  return redirect(f"/login?t={text}")
 
 
 @app.route("/pass_recover", methods=["GET"])
@@ -273,7 +277,7 @@ def game_list():
 
 @csrf.include
 @app.route("/admin", methods=['GET'])
-def admin():
+def admin_panel():
   if session.get("admin") and session.get("logged_in"):
     user_list = []
     matches = db.prefix("user")
@@ -297,7 +301,7 @@ def admin():
 
 
 @app.route("/delete", methods=['POST'])
-def delete():
+def delete_user():
   if session.get("admin") and session.get("logged_in"):
     form = request.form
     username = form.get("username")
@@ -337,10 +341,11 @@ def price_target():
             text = f"{game}'s target price needs to be below ${price}!"
             return redirect(f"/game_list?t={text}")
           else:
-            text = f"{game}'s target price is now ${target_price}!"
             target_percent = round((target_price - price) / (price * 100), 2)
+            target_price = f"${target_price:.2f}"
+            text = f"{game}'s target price is now {target_price}!"
             db[match]["target_percent"] = f"{target_percent}"
-            db[match]["target_price"] = f"${target_price:.2f}"
+            db[match]["target_price"] = f"{target_price}"
             return redirect(f"/game_list?t={text}")
     return f"{target_price} for {game}"
   else:
@@ -379,10 +384,14 @@ def logout():
     return redirect(f"/login?t={text}")
 
 
-schedule.every(3).hours.do(compare)
-
-if __name__ == "__main__":
-  app.run(host='0.0.0.0', port=81)
+def background_task():
   while True:
     schedule.run_pending()
     time.sleep(5)
+
+chores()
+if __name__ == "__main__":
+  schedule.every(4).hours.do(chores)
+  t = threading.Thread(target=background_task)
+  t.start()
+  app.run(host='0.0.0.0', port=81)
