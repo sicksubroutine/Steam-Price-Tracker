@@ -6,7 +6,6 @@ from flask_seasurf import SeaSurf
 import threading
 
 #TODO: Create differet "sections" on the game list (bundles, games not for sale, and so on)
-#TODO: Implement password reset
 #TODO: Implement rate limiting on password requests/account creation
 #TODO: Add error handling (try, except)
 #TODO: Convert as many routes to render_template as possible
@@ -47,6 +46,7 @@ def index():
     return redirect('/game_list')
   return render_template('index.html', text=request.args.get("t"))
 
+## SIGN UP ##
 
 @csrf.include
 @app.route("/signup", methods=["GET"])
@@ -88,6 +88,7 @@ def sign():
   text = f"You are signed up as {username}. Please confirm your email address before logging in!"
   return redirect(f"/login?t={text}")
 
+## LOGIN ##
 
 @csrf.include
 @app.route("/login", methods=["GET"])
@@ -96,7 +97,8 @@ def login():
   if session.get('logged_in'):
     return redirect(f'/game_list?={text}')
   text = request.args.get("t")
-  return render_template("login.html", text=text)
+  recover = "Input your email address below to recover your password."
+  return render_template("login.html", text=text, recover=recover)
 
 
 @app.route("/log", methods=["POST"])
@@ -137,6 +139,7 @@ def log_in():
     text = "Invalid login"
     return redirect(f"/login?t={text}")
 
+## EMAIL CONFIRMATION ##
 
 def confirm_email(username) -> None:
   db_key = gen_unique_token(username)
@@ -156,30 +159,84 @@ def confirm():
     if token == db[match]["token"] and db[match]["token_spent"] == False:
       username = db[match]["username"]
       if token_expiration(token) == False:
-        db[match]["token_spent"] = True
+        
         for user in users:
           if db[user]["username"] == username:
             if type == "confirm":
+              db[match]["token_spent"] = True
               db[user]["email_confirmed"] = True
               text = "Email Confirmed!"
               return redirect(f"/login?t={text}")
             elif type == "recovery":
               text = "Please update your password!"
-              return redirect(f"/pass_recover?t={text}")
+              return redirect(f"/pass?t={text}&token={token}")
       elif token_expiration(token):
         db[match]["token_spent"] = True
         text = "Token Expired!"
         return redirect(f"/login?t={text}")
-      else:
-        text = "wtf did you do?"
-        return redirect(f"/login?t={text}")
-  text = "Error! Invalid Token!"
-  return redirect(f"/login?t={text}")
+  else:      
+    text = "Error! Invalid Token!"
+    return redirect(f"/login?t={text}")
 
+## PASSWORD RECOVERY ##
 
+@csrf.include
 @app.route("/pass_recover", methods=["GET"])
 def pass_recover():
-  pass
+  text = request.args.get("t")
+  return render_template("recovery.html", text=text)
+
+@app.route("/recover", methods=["POST"])
+def email_check():
+  form = request.form
+  email = form.get("email")
+  matches = db.prefix("user")
+  for match in matches:
+    if db[match]["email"] == email:
+      username = db[match]["username"]
+      db_key = gen_unique_token(username)
+      token_match = db.prefix("token")
+      for tm in token_match:
+        if db_key == tm:
+          token = db[tm]["token"]
+          confirm_mail(email, token, "recovery")
+          text = "Please check your email to recover password."
+          return redirect(f"/login?t={text}")
+  else:
+    text = "Error! Invalid Email!"
+    return redirect(f"/pass_recover?t={text}")
+    
+@csrf.include
+@app.route("/pass", methods=["GET"])
+def pass_reset_page():
+  text = request.args.get("t")
+  token = request.args.get("token")
+  return render_template("reset.html", text=text, token=token)
+
+@app.route("/password_reset", methods=["POST"])
+def pass_reset_funct():
+  form = request.form
+  token = form.get("token")
+  matches = db.prefix("token")
+  users = db.prefix("user")
+  for match in matches:
+    if token == db[match]["token"]:
+      username = db[match]["username"]
+      for user in users:
+        if db[user]["username"] == username:
+          salt = saltGet()
+          password = saltPass(form.get("password"), salt)
+          db[match]["token_spent"] = True
+          db[user]["password"] = password
+          db[user]["salt"] = salt
+          text = "Password Reset! Please login."
+          return redirect(f"/login?t={text}")
+      else:
+        text = "Error! Invalid Username!"
+        return redirect(f"/login?t={text}")
+  else:
+    text = "Error! Invalid Token!"
+    return redirect(f"/login?t={text}")
 
 
 @csrf.exempt
@@ -231,6 +288,7 @@ def price_add():
   text = f"{name} Added!"
   return redirect(f"/game_list?t={text}")
 
+## GAME LIST ##
 
 @app.route("/game_list", methods=['GET'])
 def game_list():
@@ -273,49 +331,6 @@ def game_list():
   else:
     page = page.replace("{t}", text)
   return page
-
-
-@csrf.include
-@app.route("/admin", methods=['GET'])
-def admin_panel():
-  if session.get("admin") and session.get("logged_in"):
-    user_list = []
-    matches = db.prefix("user")
-    for match in matches:
-      user_list.append({
-        "username": db[match]["username"],
-        "email": db[match]["email"],
-        "admin": db[match]["admin"],
-        "last_login": db[match]["last_login"],
-        "creation_date": db[match]["creation_date"],
-        "email_confirmed": str(db[match]["email_confirmed"])
-      })
-    text = request.args.get("t")
-    return render_template("admin.html",
-                           user_list=user_list,
-                           user=session.get("username"),
-                           text=text)
-  else:
-    text = "You are not an Admin!"
-    return redirect(f"/login?t={text}")
-
-
-@app.route("/delete", methods=['POST'])
-def delete_user():
-  if session.get("admin") and session.get("logged_in"):
-    form = request.form
-    username = form.get("username")
-    matches = db.prefix("user")
-    for match in matches:
-      if db[match]["username"] == username:
-        username = db[match]["username"]
-        del db[match]
-        text = f"{username} Deleted!"
-        return redirect(f"/admin?t={text}")
-  else:
-    text = "You are not an Admin!"
-    return redirect(f"/?t={text}")
-
 
 @csrf.exempt
 @app.route("/price_target", methods=['POST'])
@@ -371,6 +386,49 @@ def delete_game():
     text = "You are not logged in!"
     return redirect(f"/login?t={text}")
 
+## ADMIN PANEL ##
+
+@csrf.include
+@app.route("/admin", methods=['GET'])
+def admin_panel():
+  if session.get("admin") and session.get("logged_in"):
+    user_list = []
+    matches = db.prefix("user")
+    for match in matches:
+      user_list.append({
+        "username": db[match]["username"],
+        "email": db[match]["email"],
+        "admin": db[match]["admin"],
+        "last_login": db[match]["last_login"],
+        "creation_date": db[match]["creation_date"],
+        "email_confirmed": str(db[match]["email_confirmed"])
+      })
+    text = request.args.get("t")
+    return render_template("admin.html",
+                           user_list=user_list,
+                           user=session.get("username"),
+                           text=text)
+  else:
+    text = "You are not an Admin!"
+    return redirect(f"/login?t={text}")
+
+
+@app.route("/delete", methods=['POST'])
+def delete_user():
+  if session.get("admin") and session.get("logged_in"):
+    form = request.form
+    username = form.get("username")
+    matches = db.prefix("user")
+    for match in matches:
+      if db[match]["username"] == username:
+        username = db[match]["username"]
+        del db[match]
+        text = f"{username} Deleted!"
+        return redirect(f"/admin?t={text}")
+  else:
+    text = "You are not an Admin!"
+    return redirect(f"/?t={text}")
+
 
 @app.route("/logout")
 def logout():
@@ -389,7 +447,7 @@ def background_task():
     schedule.run_pending()
     time.sleep(5)
 
-chores()
+
 if __name__ == "__main__":
   schedule.every(4).hours.do(chores)
   t = threading.Thread(target=background_task)

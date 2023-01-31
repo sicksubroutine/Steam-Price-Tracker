@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>Password Recovery</title>
+  <link rel="stylesheet" href="/static/styles/logsign.css">
+</head>
+
+<body>
+
+  <h3>Password Recovery</h3>
+  {% if text %}
+  <span class="red_text">{{ text }}</span><br>
+  {% endif %}
+  <div class="box-shadow">
+  <br>
+  
+  <form method = "post" action = "/recover">
+  Email Address: <span class="red">*</span><input type="email" name="email" required/>
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <p>
+      <button class="btn" type="submit" class="btn">Recover Password</button>
+    </p>
+  </form>
+    </div>
+</form>
+</body>
+</html>

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>Password Reset</title>
+  <link rel="stylesheet" href="/static/styles/logsign.css">
+  <script src="static/scripts/script.js"></script>
+</head>
+
+<body>
+  <h3>Password Reset</h3>
+  {% if text %}
+  <span class="red_text">{{ text }}</span><br>
+  {% endif %}
+  <div class="box-shadow">
+  <form id="form" method = "post" action = "/password_reset">
+    <p>Password: <span class="red">*</span><input id="password" type="password" name="password" required/></p>   
+    <p>
+      Confirm Password: <span class="red">*</span><input id="confirm" type="password" name="confirm" required/></p>
+    </p>
+    <input type="hidden" id="tokenInput" name="token" value="{{ token }}">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <p>
+      <span id="error_message" class="red">Error: Passwords do not match!</span>
+      <button class="btn" type="submit" class="btn">Reset Password</button>
+    </p>
+  </form>
+    </div>
+</form>
+</body>
+  
+</html>

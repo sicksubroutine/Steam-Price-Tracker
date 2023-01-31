@@ -6,7 +6,6 @@ from email.mime.text import MIMEText
 import smtplib
 
 PATH = "static/html/"
-
 RED = "\33[31m"
 NONE = "\33[0m"
 
@@ -50,13 +49,17 @@ def scrape(url, bundle) -> str:
 
 
 def purge_old_tokens():
+  expire_grace = datetime.datetime.now()
+  expire_grace = expire_grace + datetime.timedelta(hours=1)
   matches = db.prefix("token")
   count = 0
   for match in matches:
     if db[match]["token_spent"] == True:
-      del db[match]
-      count +=1
-      print("Token Purged")
+      expiry_time = db[match]["token_expiration_time"]
+      if expire_grace > expiry_time:
+        del db[match]
+        count +=1
+        print("Token Purged")
   print(f"{RED}{count} Tokens Purged{NONE}")
 
 
@@ -135,17 +138,15 @@ def price_change_mail(recipent, old, new, per, url, name, image_url) -> None:
 
 def confirm_mail(recipent, token, type) -> None:
   URL = "https://scraping-steam-prices.thechaz.repl.co/"
-  if type == "confirm":
-    with open(f"{PATH}confirm_token.html", "r") as f:
+  with open(f"{PATH}confirm_token.html", "r") as f:
       template = f.read()
+  if type == "confirm":
       template = template.replace("{token}", token)
       template = template.replace(
         "{desc}", "Confirm your Email Address by clickling below.")
       template = template.replace("{url}", f"{URL}/")
       template = template.replace("{type}", type)
   elif type == "recovery":
-    with open(f"{PATH}recovery_token.html", "r") as f:
-      template = f.read()
       template = template.replace("{token}", token)
       template = template.replace(
         "{desc}", "Recover your password by clicking the link below.")
@@ -223,7 +224,22 @@ def token_expiration(token) -> bool:
       elif now < expiry_time:
         return False
 
+def time_get():
+  time = datetime.datetime.now()
+  PT_time = time - datetime.timedelta(hours=8)
+  string_time = PT_time.strftime("%m-%d-%Y %I:%M:%S %p")
+  return string_time, PT_time
+
 def chores():
+  now_str, now = time_get()
+  print(f"Chores starting at {now_str}")
   purge_old_tokens()
   compare()
+  after_str, after = time_get()
+  time_taken = after - now
+  # convert to seconds
+  time_taken = round(time_taken.total_seconds(), 2)
+  print(f"Chores finished at {after_str}")
+  print(f"Time taken: {time_taken} Seconds")
   print("\33[31m====CHORES=RUN=COMPLETE====\33[0m")
+  

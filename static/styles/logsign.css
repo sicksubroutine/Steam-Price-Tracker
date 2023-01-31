@@ -63,3 +63,12 @@ input {
   background: linear-gradient(90deg, rgba(25,25,25,1) 0%, rgba(100,100,100,0.75) 50%);
   border: 2px solid #8f8f8f;
 }
+
+.reset {
+  color: red;
+  text-decoration: none;
+}
+.reset:hover {
+  text-decoration: underline;
+  color: white;
+}
