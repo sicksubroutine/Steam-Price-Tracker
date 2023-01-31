@@ -51,15 +51,21 @@ def scrape(url, bundle) -> str:
 def purge_old_tokens():
   expire_grace = datetime.datetime.now()
   expire_grace = expire_grace + datetime.timedelta(hours=1)
+  old_token = expire_grace + datetime.timedelta(hours=4)
   matches = db.prefix("token")
   count = 0
   for match in matches:
+    expiry_time = db[match]["token_expiration_time"]
+    expiry_time = datetime.datetime.strptime(expiry_time, "%m-%d-%Y %I:%M:%S %p")
     if db[match]["token_spent"] == True:
-      expiry_time = db[match]["token_expiration_time"]
-      if expire_grace > expiry_time:
+      if expiry_time > expire_grace:
         del db[match]
         count +=1
         print("Token Purged")
+    elif expiry_time > old_token:
+      del db[match]
+      count +=1
+      print("Token Purged")
   print(f"{RED}{count} Tokens Purged{NONE}")
 
 

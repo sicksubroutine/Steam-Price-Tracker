@@ -447,7 +447,6 @@ def background_task():
     schedule.run_pending()
     time.sleep(5)
 
-
 if __name__ == "__main__":
   schedule.every(4).hours.do(chores)
   t = threading.Thread(target=background_task)
