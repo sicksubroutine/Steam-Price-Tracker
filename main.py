@@ -7,7 +7,6 @@ import threading
 
 #TODO: Create differet "sections" on the game list (bundles, games not for sale, and so on)
 #TODO: Implement rate limiting on password requests/account creation
-#TODO: Add error handling (try, except)
 #TODO: Convert as many routes to render_template as possible
 #TODO: Add sending of a confirmation email after token exipration
 #TODO: Add a logging system
@@ -63,35 +62,39 @@ def signup():
 
 @app.route("/sign", methods=["POST"])
 def sign():
-  form = request.form
-  username = form.get("username").lower()
-  salt = saltGet()
-  password = saltPass(form.get("password"), salt)
-  email = form.get("email")
-  matches = db.prefix("user")
-  for match in matches:
-    if db[match]["username"] == username:
-      text = "Username already taken!"
-      return redirect(f"/signup?t={text}")
-    if db[match]["email"] == email:
-      text = "Email already exists!"
-      return redirect(f"/signup?t={text}")
-  user_num = "user" + str(random.randint(100_000_000, 999_999_999))
-  account_creation = datetime.datetime.now()
-  account_creation = account_creation.strftime("%m-%d-%Y %I:%M:%S %p")
-  db[user_num] = {
-    "username": username,
-    "password": password,
-    "salt": salt,
-    "email": email,
-    "admin": False,
-    "creation_date": account_creation,
-    "email_confirmed": False,
-    "last_login": "Never Logged In",
-  }
-  confirm_email(username)
-  text = f"You are signed up as {username}. Please confirm your email address before logging in!"
-  return redirect(f"/login?t={text}")
+  try:
+    form = request.form
+    username = form.get("username").lower()
+    salt = saltGet()
+    password = saltPass(form.get("password"), salt)
+    email = form.get("email")
+    matches = db.prefix("user")
+    for match in matches:
+      if db[match]["username"] == username:
+        text = "Username already taken!"
+        return redirect(f"/signup?t={text}")
+      if db[match]["email"] == email:
+        text = "Email already exists!"
+        return redirect(f"/signup?t={text}")
+    user_num = "user" + str(random.randint(100_000_000, 999_999_999))
+    account_creation = datetime.datetime.now()
+    account_creation = account_creation.strftime("%m-%d-%Y %I:%M:%S %p")
+    db[user_num] = {
+      "username": username,
+      "password": password,
+      "salt": salt,
+      "email": email,
+      "admin": False,
+      "creation_date": account_creation,
+      "email_confirmed": False,
+      "last_login": "Never Logged In",
+    }
+    confirm_email(username)
+    text = f"You are signed up as {username}. Please confirm your email address before logging in!"
+    return redirect(f"/login?t={text}")
+  except:
+    text = "Something went wrong!"
+    return redirect(f"/signup?t={text}")
 
 
 ## LOGIN ##
@@ -143,7 +146,7 @@ def log_in():
     text = "Invalid login"
     return redirect(f"/login?t={text}")
   except:
-    text = "Invalid login"
+    text = "Invalid login! Something went wrong."
     return redirect(f"/login?t={text}")
 
 
@@ -160,31 +163,35 @@ def confirm_email(username) -> None:
 
 @app.route("/confirm", methods=["GET"])
 def confirm():
-  token = request.args.get("t")
-  type = request.args.get("ty")
-  users = db.prefix("user")
-  matches = db.prefix("token")
-  for match in matches:
-    if token == db[match]["token"] and db[match]["token_spent"] == False:
-      username = db[match]["username"]
-      if token_expiration(token) == False:
-
-        for user in users:
-          if db[user]["username"] == username:
-            if type == "confirm":
-              db[match]["token_spent"] = True
-              db[user]["email_confirmed"] = True
-              text = "Email Confirmed!"
-              return redirect(f"/login?t={text}")
-            elif type == "recovery":
-              text = "Please update your password!"
-              return redirect(f"/pass?t={text}&token={token}")
-      elif token_expiration(token):
-        db[match]["token_spent"] = True
-        text = "Token Expired!"
-        return redirect(f"/login?t={text}")
-  else:
-    text = "Error! Invalid Token!"
+  try:
+    token = request.args.get("t")
+    type = request.args.get("ty")
+    users = db.prefix("user")
+    matches = db.prefix("token")
+    for match in matches:
+      if token == db[match]["token"] and db[match]["token_spent"] == False:
+        username = db[match]["username"]
+        if token_expiration(token) == False:
+  
+          for user in users:
+            if db[user]["username"] == username:
+              if type == "confirm":
+                db[match]["token_spent"] = True
+                db[user]["email_confirmed"] = True
+                text = "Email Confirmed!"
+                return redirect(f"/login?t={text}")
+              elif type == "recovery":
+                text = "Please update your password!"
+                return redirect(f"/pass?t={text}&token={token}")
+        elif token_expiration(token):
+          db[match]["token_spent"] = True
+          text = "Token Expired!"
+          return redirect(f"/login?t={text}")
+    else:
+      text = "Error! Invalid Token!"
+      return redirect(f"/login?t={text}")
+  except:
+    text = "Something went wrong!"
     return redirect(f"/login?t={text}")
 
 
@@ -200,22 +207,26 @@ def pass_recover():
 
 @app.route("/recover", methods=["POST"])
 def email_check():
-  form = request.form
-  email = form.get("email")
-  matches = db.prefix("user")
-  for match in matches:
-    if db[match]["email"] == email:
-      username = db[match]["username"]
-      db_key = gen_unique_token(username)
-      token_match = db.prefix("token")
-      for tm in token_match:
-        if db_key == tm:
-          token = db[tm]["token"]
-          confirm_mail(email, token, "recovery")
-          text = "Please check your email to recover password."
-          return redirect(f"/login?t={text}")
-  else:
-    text = "Error! Invalid Email!"
+  try:
+    form = request.form
+    email = form.get("email")
+    matches = db.prefix("user")
+    for match in matches:
+      if db[match]["email"] == email:
+        username = db[match]["username"]
+        db_key = gen_unique_token(username)
+        token_match = db.prefix("token")
+        for tm in token_match:
+          if db_key == tm:
+            token = db[tm]["token"]
+            confirm_mail(email, token, "recovery")
+            text = "Please check your email to recover password."
+            return redirect(f"/login?t={text}")
+    else:
+      text = "Error! Invalid Email!"
+      return redirect(f"/pass_recover?t={text}")
+  except:
+    text = "Something went wrong!"
     return redirect(f"/pass_recover?t={text}")
 
 
@@ -229,29 +240,32 @@ def pass_reset_page():
 
 @app.route("/password_reset", methods=["POST"])
 def pass_reset_funct():
-  form = request.form
-  token = form.get("token")
-  matches = db.prefix("token")
-  users = db.prefix("user")
-  for match in matches:
-    if token == db[match]["token"]:
-      username = db[match]["username"]
-      for user in users:
-        if db[user]["username"] == username:
-          salt = saltGet()
-          password = saltPass(form.get("password"), salt)
-          db[match]["token_spent"] = True
-          db[user]["password"] = password
-          db[user]["salt"] = salt
-          text = "Password Reset! Please login."
+  try:
+    form = request.form
+    token = form.get("token")
+    matches = db.prefix("token")
+    users = db.prefix("user")
+    for match in matches:
+      if token == db[match]["token"]:
+        username = db[match]["username"]
+        for user in users:
+          if db[user]["username"] == username:
+            salt = saltGet()
+            password = saltPass(form.get("password"), salt)
+            db[match]["token_spent"] = True
+            db[user]["password"] = password
+            db[user]["salt"] = salt
+            text = "Password Reset! Please login."
+            return redirect(f"/login?t={text}")
+        else:
+          text = "Error! Invalid Username!"
           return redirect(f"/login?t={text}")
-      else:
-        text = "Error! Invalid Username!"
-        return redirect(f"/login?t={text}")
-  else:
-    text = "Error! Invalid Token!"
+    else:
+      text = "Error! Invalid Token!"
+      return redirect(f"/login?t={text}")
+  except:
+    text = "Something went wrong!"
     return redirect(f"/login?t={text}")
-
 
 @csrf.exempt
 @app.route("/price_add", methods=['POST'])
@@ -260,48 +274,51 @@ def price_add():
     pass
   else:
     return redirect("/")
-  form = request.form
-  url = form.get("url")
-  bundle = form.get("bundle")
-  username = session.get("username")
-  if bundle == None:
-    bundle = False
-    name, price, image_url, for_sale = scrape(url, bundle)
-    bundle = "Not a Bundle"
-  else:
-    bundle = True
-    name, price, image_url, for_sale = scrape(url, bundle)
-    bundle = "Bundle"
-  price_t = price
-  price_t = float(price_t[1:])
-  target_price = round(price_t - (price_t * 0.15), 2)
-  target_price = f"${target_price:.2f}"
-  current_time = datetime.datetime.now()
-  matches = db.prefix("game")
-  for match in matches:
-    if db[match]["game_name"] == None:
-      continue
-    elif db[match]["game_name"] == name:
-      text = "Game Already Added! Try another URL!"
-      return redirect(f"/game_list?t={text}")
-  game_key = "game" + str(random.randint(100_000_000, 999_999_999))
-  db[game_key] = {
-    "game_name": name,
-    "price": price,
-    "url": url,
-    "username": username,
-    "bundle": bundle,
-    "image_url": image_url,
-    "old_price": "$0",
-    "percent_change": "0",
-    "for_sale": for_sale,
-    "target_percent": "-10",
-    "target_price": target_price,
-    "date_added": current_time.strftime("%m-%d-%Y %I:%M:%S %p")
-  }
-  text = f"{name} Added!"
-  return redirect(f"/game_list?t={text}")
-
+  try:
+    form = request.form
+    url = form.get("url")
+    bundle = form.get("bundle")
+    username = session.get("username")
+    if bundle == None:
+      bundle = False
+      name, price, image_url, for_sale = scrape(url, bundle)
+      bundle = "Not a Bundle"
+    else:
+      bundle = True
+      name, price, image_url, for_sale = scrape(url, bundle)
+      bundle = "Bundle"
+    price_t = price
+    price_t = float(price_t[1:])
+    target_price = round(price_t - (price_t * 0.15), 2)
+    target_price = f"${target_price:.2f}"
+    current_time = datetime.datetime.now()
+    matches = db.prefix("game")
+    for match in matches:
+      if db[match]["game_name"] == None:
+        continue
+      elif db[match]["game_name"] == name:
+        text = "Game Already Added! Try another URL!"
+        return redirect(f"/game_list?t={text}")
+    game_key = "game" + str(random.randint(100_000_000, 999_999_999))
+    db[game_key] = {
+      "game_name": name,
+      "price": price,
+      "url": url,
+      "username": username,
+      "bundle": bundle,
+      "image_url": image_url,
+      "old_price": "$0",
+      "percent_change": "0",
+      "for_sale": for_sale,
+      "target_percent": "-10",
+      "target_price": target_price,
+      "date_added": current_time.strftime("%m-%d-%Y %I:%M:%S %p")
+    }
+    text = f"{name} Added!"
+    return redirect(f"/game_list?t={text}")
+  except:
+    text = "Something went wrong!"
+    return redirect(f"/game_list?t={text}")
 
 ## GAME LIST ##
 
@@ -353,6 +370,11 @@ def game_list():
 @app.route("/price_target", methods=['POST'])
 def price_target():
   if session.get("logged_in"):
+    pass
+  else:
+    text = "You are not logged in!"
+    return redirect(f"/login?t={text}")
+  try:
     form = request.form
     username = session.get("username")
     game = form.get("game")
@@ -380,14 +402,20 @@ def price_target():
             db[match]["target_price"] = f"{target_price}"
             return redirect(f"/game_list?t={text}")
     return f"{target_price} for {game}"
-  else:
-    text = "You are not logged in!"
-    return redirect(f"/login?t={text}")
+  except:
+    text = "Something went wrong!"
+    return redirect(f"/game_list?t={text}")
+  
 
 
 @app.route("/delete_game", methods=["GET"])
 def delete_game():
   if session.get("logged_in"):
+    pass_reset_funct
+  else:
+    text = "You are not logged in!"
+    return redirect(f"/login?t={text}")
+  try:
     game = request.args.get("d")
     user = session.get("username")
     matches = db.prefix("game")
@@ -399,9 +427,9 @@ def delete_game():
         return redirect(f"/game_list?t={text}")
     text = f"{game} Not Found!"
     return redirect(f"/game_list?t={text}")
-  else:
-    text = "You are not logged in!"
-    return redirect(f"/login?t={text}")
+  except:
+    text = "Something went wrong!"
+    return redirect(f"/game_list?t={text}")
 
 
 ## ADMIN PANEL ##
@@ -435,6 +463,11 @@ def admin_panel():
 @app.route("/delete", methods=['POST'])
 def delete_user():
   if session.get("admin") and session.get("logged_in"):
+    pass
+  else:
+    text = "You are not an Admin!"
+    return redirect(f"/?t={text}") 
+  try:
     form = request.form
     username = form.get("username")
     matches = db.prefix("user")
@@ -444,10 +477,9 @@ def delete_user():
         del db[match]
         text = f"{username} Deleted!"
         return redirect(f"/admin?t={text}")
-  else:
-    text = "You are not an Admin!"
-    return redirect(f"/?t={text}")
-
+  except:  
+    text = "Something went wrong!"
+    return redirect(f"/admin?t={text}")
 
 @app.route("/logout")
 def logout():
