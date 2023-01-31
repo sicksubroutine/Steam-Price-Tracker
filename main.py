@@ -18,26 +18,29 @@ csrf.init_app(app)
 app.secret_key = os.environ['sessionKey']
 PATH = "static/html/"
 """
+## Testing/Direct Database Modification
+
 #game testing area
 matches = db.prefix("game")
 for match in matches:
   if db[match]["for_sale"] == "True":
     if db[match]["game_name"] == "Bloodwash":
       db[match]["price"] = "$12.99"
-"""
-"""
+
 #user testing area
 matches = db.prefix("user")
 for match in matches:
   if db[match]["username"] == "test_account":
     db[match]["last_login"] = "Not yet Logged in"
-"""
-"""
+
 #token testing area
+count = 0
 matches = db.prefix("token")
 for match in matches:
-  del db[match]
+  count += 1
+print(f"{count}")
 """
+
 
 
 @app.route("/", methods=["GET"])
@@ -46,7 +49,9 @@ def index():
     return redirect('/game_list')
   return render_template('index.html', text=request.args.get("t"))
 
+
 ## SIGN UP ##
+
 
 @csrf.include
 @app.route("/signup", methods=["GET"])
@@ -88,7 +93,9 @@ def sign():
   text = f"You are signed up as {username}. Please confirm your email address before logging in!"
   return redirect(f"/login?t={text}")
 
+
 ## LOGIN ##
+
 
 @csrf.include
 @app.route("/login", methods=["GET"])
@@ -139,7 +146,9 @@ def log_in():
     text = "Invalid login"
     return redirect(f"/login?t={text}")
 
+
 ## EMAIL CONFIRMATION ##
+
 
 def confirm_email(username) -> None:
   db_key = gen_unique_token(username)
@@ -159,7 +168,7 @@ def confirm():
     if token == db[match]["token"] and db[match]["token_spent"] == False:
       username = db[match]["username"]
       if token_expiration(token) == False:
-        
+
         for user in users:
           if db[user]["username"] == username:
             if type == "confirm":
@@ -174,17 +183,20 @@ def confirm():
         db[match]["token_spent"] = True
         text = "Token Expired!"
         return redirect(f"/login?t={text}")
-  else:      
+  else:
     text = "Error! Invalid Token!"
     return redirect(f"/login?t={text}")
 
+
 ## PASSWORD RECOVERY ##
+
 
 @csrf.include
 @app.route("/pass_recover", methods=["GET"])
 def pass_recover():
   text = request.args.get("t")
   return render_template("recovery.html", text=text)
+
 
 @app.route("/recover", methods=["POST"])
 def email_check():
@@ -205,13 +217,15 @@ def email_check():
   else:
     text = "Error! Invalid Email!"
     return redirect(f"/pass_recover?t={text}")
-    
+
+
 @csrf.include
 @app.route("/pass", methods=["GET"])
 def pass_reset_page():
   text = request.args.get("t")
   token = request.args.get("token")
   return render_template("reset.html", text=text, token=token)
+
 
 @app.route("/password_reset", methods=["POST"])
 def pass_reset_funct():
@@ -288,7 +302,9 @@ def price_add():
   text = f"{name} Added!"
   return redirect(f"/game_list?t={text}")
 
+
 ## GAME LIST ##
+
 
 @app.route("/game_list", methods=['GET'])
 def game_list():
@@ -331,6 +347,7 @@ def game_list():
   else:
     page = page.replace("{t}", text)
   return page
+
 
 @csrf.exempt
 @app.route("/price_target", methods=['POST'])
@@ -386,7 +403,9 @@ def delete_game():
     text = "You are not logged in!"
     return redirect(f"/login?t={text}")
 
+
 ## ADMIN PANEL ##
+
 
 @csrf.include
 @app.route("/admin", methods=['GET'])
@@ -446,6 +465,7 @@ def background_task():
   while True:
     schedule.run_pending()
     time.sleep(5)
+
 
 if __name__ == "__main__":
   schedule.every(4).hours.do(chores)

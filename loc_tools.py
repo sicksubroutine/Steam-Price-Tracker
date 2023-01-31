@@ -48,7 +48,7 @@ def scrape(url, bundle) -> str:
     return game_name.text.strip(), game_price.text.strip(), image_url, for_sale
 
 
-def purge_old_tokens():
+def purge_old_tokens() -> None:
   expire_grace = datetime.datetime.now()
   expire_grace = expire_grace + datetime.timedelta(hours=1)
   old_token = expire_grace + datetime.timedelta(hours=4)
@@ -230,13 +230,13 @@ def token_expiration(token) -> bool:
       elif now < expiry_time:
         return False
 
-def time_get():
+def time_get() -> str:
   time = datetime.datetime.now()
   PT_time = time - datetime.timedelta(hours=8)
   string_time = PT_time.strftime("%m-%d-%Y %I:%M:%S %p")
   return string_time, PT_time
 
-def chores():
+def chores() -> None:
   now_str, now = time_get()
   print(f"Chores starting at {now_str}")
   purge_old_tokens()

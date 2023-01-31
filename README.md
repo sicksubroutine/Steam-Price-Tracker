@@ -10,11 +10,11 @@ This project was done to conicide with the 100th day of Replit's 100 Days of Cod
 - Login System with hashed/salted passwords stored in the Replit Database
 - Password Recovery System
 - Email Confirmation
-- Token Generation and verfication system for Password Recovery/Email Confirmation
+- Token Generation and verification system for Password Recovery/Email Confirmation
 - CSRF Protection
 - Ability to add games to a Price Tracking List
 - Set Price Target
-- Page will update with price updates, email sent if price is below price target
+- Page will scrape the Steam website to get price updates, email sent if price is below price target
 - Admin panel to view user information/delete users
 - Background scheduler to update prices/purge old tokens
 - Supports bundles and games that aren't for sale yet. Will email you when they go on sale.

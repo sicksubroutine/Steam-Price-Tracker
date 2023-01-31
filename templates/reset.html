@@ -19,7 +19,7 @@
     <p>
       Confirm Password: <span class="red">*</span><input id="confirm" type="password" name="confirm" required/></p>
     </p>
-    <input type="hidden" id="tokenInput" name="token" value="{{ token }}">
+    <input type="hidden" name="token" value="{{ token }}">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <p>
       <span id="error_message" class="red">Error: Passwords do not match!</span>
