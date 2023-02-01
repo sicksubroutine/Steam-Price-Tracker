@@ -1,21 +1,22 @@
-import os, random, time, schedule, datetime
+import os, random, time, schedule, datetime, threading, logging
 from replit import db
 from flask import Flask, request, session, redirect, render_template
 from loc_tools import scrape, saltGet, saltPass, chores, confirm_mail, gen_unique_token, token_expiration
 from flask_seasurf import SeaSurf
-import threading
 
 #TODO: Create differet "sections" on the game list (bundles, games not for sale, and so on)
 #TODO: Implement rate limiting on password requests/account creation
 #TODO: Convert as many routes to render_template as possible
 #TODO: Add sending of a confirmation email after token exipration
-#TODO: Add a logging system
 
 app = Flask(__name__, static_url_path='/static')
 csrf = SeaSurf()
 csrf.init_app(app)
 app.secret_key = os.environ['sessionKey']
 PATH = "static/html/"
+
+logging.basicConfig(filename='app.log', level=logging.INFO)
+
 """
 ## Testing/Direct Database Modification
 
@@ -91,6 +92,7 @@ def sign():
     }
     confirm_email(username)
     text = f"You are signed up as {username}. Please confirm your email address before logging in!"
+    logging.info(f"{text}")
     return redirect(f"/login?t={text}")
   except:
     text = "Something went wrong!"
@@ -498,7 +500,7 @@ def background_task():
     schedule.run_pending()
     time.sleep(5)
 
-
+chores()
 if __name__ == "__main__":
   schedule.every(4).hours.do(chores)
   t = threading.Thread(target=background_task)
