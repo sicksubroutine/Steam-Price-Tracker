@@ -3,20 +3,22 @@ from replit import db
 from flask import Flask, request, session, redirect, render_template
 from loc_tools import scrape, saltGet, saltPass, chores, confirm_mail, gen_unique_token, token_expiration
 from flask_seasurf import SeaSurf
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
-#TODO: Create differet "sections" on the game list (bundles, games not for sale, and so on)
-#TODO: Implement rate limiting on password requests/account creation
+#TODO: Create different "sections" on the game list (bundles, games not for sale, and so on)
 #TODO: Convert as many routes to render_template as possible
-#TODO: Add sending of a confirmation email after token exipration
+
+## SETUP ##
 
 app = Flask(__name__, static_url_path='/static')
 csrf = SeaSurf()
 csrf.init_app(app)
 app.secret_key = os.environ['sessionKey']
 PATH = "static/html/"
-
 logging.basicConfig(filename='app.log', level=logging.INFO)
-
+limiter = Limiter(key_func=get_remote_address)
+limiter.init_app(app)
 """
 ## Testing/Direct Database Modification
 
@@ -32,15 +34,14 @@ matches = db.prefix("user")
 for match in matches:
   if db[match]["username"] == "test_account":
     db[match]["last_login"] = "Not yet Logged in"
-
+"""
 #token testing area
 count = 0
 matches = db.prefix("token")
 for match in matches:
+  del db[match]
   count += 1
 print(f"{count}")
-"""
-
 
 
 @app.route("/", methods=["GET"])
@@ -62,6 +63,7 @@ def signup():
 
 
 @app.route("/sign", methods=["POST"])
+@limiter.limit("3 per hour")
 def sign():
   try:
     form = request.form
@@ -108,12 +110,12 @@ def login():
   text = request.args.get("t")
   if session.get('logged_in'):
     return redirect(f'/game_list?={text}')
-  text = request.args.get("t")
   recover = "Input your email address below to recover your password."
   return render_template("login.html", text=text, recover=recover)
 
 
 @app.route("/log", methods=["POST"])
+@limiter.limit("25 per hour")
 def log_in():
   try:
     form = request.form
@@ -125,9 +127,6 @@ def log_in():
         current_time = datetime.datetime.now()
         salt = db[match]["salt"]
         password = saltPass(password, salt)
-        if db[match]["email_confirmed"] == False:
-          text = "Email not confirmed! Please confirm your email address!"
-          return redirect(f"/login?t={text}")
         if db[match]["username"] == username and db[match][
             "password"] == password and db[match]["admin"] == True:
           db[match]["last_login"] = current_time.strftime(
@@ -139,6 +138,25 @@ def log_in():
           return redirect(f"/game_list?t={text}")
         elif db[match]["username"] == username and db[match][
             "password"] == password:
+          if db[match]["email_confirmed"] == False:
+            # check if user has a confirmation token
+            tokens = db.prefix("token")
+            for token in tokens:
+              if db[token]["username"] == username and db[token][
+                  "token_spent"] == True:
+                # create new token and send email
+                confirm_email(username)
+                text = "Email Confirmation Sent! Please check your Email."
+                return redirect(f"/login?t={text}")
+              elif db[token]["username"] == username and db[token][
+                  "token_spent"] == False:
+                text = "Email not confirmed! Please confirm your email address!"
+                return redirect(f"/login?t={text}")
+            else:
+              # if no tokens are found, prompt user to confirm email
+              confirm_email(username)
+              text = "Email Confirmation Sent! Please check your Email."
+              return redirect(f"/login?t={text}")
           db[match]["last_login"] = current_time.strftime(
             "%m-%d-%Y %I:%M:%S %p")
           session["username"] = username
@@ -165,6 +183,9 @@ def confirm_email(username) -> None:
 
 @app.route("/confirm", methods=["GET"])
 def confirm():
+  if session.get("logged_in"):
+    text = "You are already logged in!"
+    return redirect(f"/game_list?t={text}")
   try:
     token = request.args.get("t")
     type = request.args.get("ty")
@@ -174,7 +195,6 @@ def confirm():
       if token == db[match]["token"] and db[match]["token_spent"] == False:
         username = db[match]["username"]
         if token_expiration(token) == False:
-  
           for user in users:
             if db[user]["username"] == username:
               if type == "confirm":
@@ -208,6 +228,7 @@ def pass_recover():
 
 
 @app.route("/recover", methods=["POST"])
+@limiter.limit("5 per hour")
 def email_check():
   try:
     form = request.form
@@ -269,6 +290,7 @@ def pass_reset_funct():
     text = "Something went wrong!"
     return redirect(f"/login?t={text}")
 
+
 @csrf.exempt
 @app.route("/price_add", methods=['POST'])
 def price_add():
@@ -321,6 +343,7 @@ def price_add():
   except:
     text = "Something went wrong!"
     return redirect(f"/game_list?t={text}")
+
 
 ## GAME LIST ##
 
@@ -407,7 +430,6 @@ def price_target():
   except:
     text = "Something went wrong!"
     return redirect(f"/game_list?t={text}")
-  
 
 
 @app.route("/delete_game", methods=["GET"])
@@ -468,7 +490,7 @@ def delete_user():
     pass
   else:
     text = "You are not an Admin!"
-    return redirect(f"/?t={text}") 
+    return redirect(f"/?t={text}")
   try:
     form = request.form
     username = form.get("username")
@@ -479,9 +501,10 @@ def delete_user():
         del db[match]
         text = f"{username} Deleted!"
         return redirect(f"/admin?t={text}")
-  except:  
+  except:
     text = "Something went wrong!"
     return redirect(f"/admin?t={text}")
+
 
 @app.route("/logout")
 def logout():
@@ -500,7 +523,7 @@ def background_task():
     schedule.run_pending()
     time.sleep(5)
 
-chores()
+
 if __name__ == "__main__":
   schedule.every(4).hours.do(chores)
   t = threading.Thread(target=background_task)
