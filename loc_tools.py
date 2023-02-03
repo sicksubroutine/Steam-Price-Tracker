@@ -20,7 +20,7 @@ def scrape(url, bundle) -> str:
       #price = <div class="discount_final_price">
       bundle_name = soup.find("h2", class_="pageheader")
       bundle_price = soup.find("div", class_="discount_final_price")
-      for_sale = "True"
+      for_sale = True
       return bundle_name.text.strip(), bundle_price.text.strip(
       ), image_url, for_sale
     else:
@@ -32,20 +32,20 @@ def scrape(url, bundle) -> str:
       discount = section.find("div", class_="discount_final_price")
       if discount != None:
         game_price = discount
-      if game_price == None:
+      elif game_price == None:
         not_for_sale = soup.find("div",
                                  class_="game_area_comingsoon game_area_bubble")
         when = not_for_sale.find_all("span")
         when = when[:-1]
         year = when[1].text
-        for_sale = "False"
+        for_sale = False
         game_price = f"Not for Sale until {year}"
         game_name = game_name.text.strip()
         return game_name, game_price, image_url, for_sale
       if not "$" in game_price.text.strip():
         game_price = soup.find_all("div", class_="game_purchase_price price")
         game_price = game_price[1]
-      for_sale = "True"
+      for_sale = True
       return game_name.text.strip(), game_price.text.strip(), image_url, for_sale
   except:
     logging.info("Error scraping page")
@@ -73,6 +73,7 @@ def purge_old_tokens() -> None:
     logging.info(f"{count} Tokens Purged")
   except:
     logging.info(f"Error purging old tokens")
+    pass
 
 
 def compare() -> None:
@@ -87,7 +88,7 @@ def compare() -> None:
       else:
         bundle = True
       name, new_price, image_url, for_sale = scrape(url, bundle)
-      if bool(for_sale) and db[match]["for_sale"] == "False":
+      if for_sale and db[match]["for_sale"] == False:
         pass
         logging.info(f"{db[match]['game_name']} is now for sale!")
         #TODO: send mail that game is now for sale
@@ -123,7 +124,8 @@ def compare() -> None:
         continue
     logging.info(f"{count} Prices Updated")
   except:
-    logging.info(f"Error updating prices!")
+    logging.info("Error updating prices!")
+    pass
     
 def price_change_mail(recipent, old, new, per, url, name, image_url) -> None:
   with open(f"{PATH}price_change.html", "r") as f:
@@ -257,7 +259,7 @@ def chores() -> None:
     time_taken = round(time_taken.total_seconds(), 2)
     logging.info(f"Chores finished at {after_str}")
     logging.info(f"Time taken: {time_taken} Seconds")
-    logging.info(f"====CHORES=RUN=COMPLETE====")
+    logging.info("====CHORES=RUN=COMPLETE====")
   except:
-    logging.info(f"====CHORES=RUN=FAILED====")
-  
+    logging.info("====CHORES=RUN=FAILED====")
+    pass

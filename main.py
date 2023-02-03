@@ -1,4 +1,4 @@
-import os, random, time, schedule, datetime, threading, logging
+import os, random, time, schedule, datetime, threading, traceback, logging
 from replit import db
 from flask import Flask, request, session, redirect, render_template
 from loc_tools import scrape, saltGet, saltPass, chores, confirm_mail, gen_unique_token, token_expiration
@@ -7,7 +7,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
 #TODO: Create different "sections" on the game list (bundles, games not for sale, and so on)
-#TODO: Convert as many routes to render_template as possible
+#TODO: send mail that game is now for sale
 
 ## SETUP ##
 
@@ -19,22 +19,23 @@ PATH = "static/html/"
 logging.basicConfig(filename='app.log', level=logging.INFO)
 limiter = Limiter(key_func=get_remote_address)
 limiter.init_app(app)
-"""
+
 ## Testing/Direct Database Modification
 
 #game testing area
 matches = db.prefix("game")
 for match in matches:
   if db[match]["for_sale"] == "True":
-    if db[match]["game_name"] == "Bloodwash":
-      db[match]["price"] = "$12.99"
-
+    db[match]["for_sale"] == True
+  elif db[match]["for_sale"] == "False":
+    db[match]["for_sale"] == False
+"""
 #user testing area
 matches = db.prefix("user")
 for match in matches:
   if db[match]["username"] == "test_account":
     db[match]["last_login"] = "Not yet Logged in"
-"""
+
 #token testing area
 count = 0
 matches = db.prefix("token")
@@ -42,7 +43,7 @@ for match in matches:
   del db[match]
   count += 1
 print(f"{count}")
-
+"""
 
 @app.route("/", methods=["GET"])
 def index():
@@ -162,6 +163,7 @@ def log_in():
           session["username"] = username
           session["logged_in"] = True
           text = f"{username} Logged In!"
+          logging.info(f"{text}")
           return redirect(f"/game_list?t={text}")
     text = "Invalid login"
     return redirect(f"/login?t={text}")
@@ -290,6 +292,37 @@ def pass_reset_funct():
     text = "Something went wrong!"
     return redirect(f"/login?t={text}")
 
+## GAME LIST ##
+
+@app.route("/game_list", methods=['GET'])
+def game_list():
+  if session.get('logged_in'):
+    pass
+  else:
+    return redirect("/")
+  username = session.get("username")
+  text = request.args.get("t")
+  game_list = []
+  matches = db.prefix("game")
+  for match in matches:
+    if username == db[match]["username"]:
+      game_list.append({
+        "url": db[match]["url"],
+        "old_price": db[match]["old_price"],
+        "image_url": db[match]["image_url"],
+        "game_name": db[match]["game_name"],
+        "game_price": db[match]['price'],
+        "percent_change": db[match]["percent_change"],
+        "bundle": db[match]["bundle"],
+        "target_price": db[match]["target_price"]
+      })
+  admin = False
+  if session.get("admin"):
+    admin = True
+  return render_template("game_list.html",
+                         game_list=game_list,
+                    user=session.get("username"),
+                         text=text, admin=admin)  
 
 @csrf.exempt
 @app.route("/price_add", methods=['POST'])
@@ -311,10 +344,14 @@ def price_add():
       bundle = True
       name, price, image_url, for_sale = scrape(url, bundle)
       bundle = "Bundle"
-    price_t = price
-    price_t = float(price_t[1:])
-    target_price = round(price_t - (price_t * 0.15), 2)
-    target_price = f"${target_price:.2f}"
+    print(f"{name} - {price} - {for_sale}")
+    if for_sale:
+      price_t = price
+      price_t = float(price_t[1:])
+      target_price = round(price_t - (price_t * 0.15), 2)
+      target_price = f"${target_price:.2f}"
+    else:
+      target_price = "$0"
     current_time = datetime.datetime.now()
     matches = db.prefix("game")
     for match in matches:
@@ -333,7 +370,7 @@ def price_add():
       "image_url": image_url,
       "old_price": "$0",
       "percent_change": "0",
-      "for_sale": for_sale,
+      "for_sale": str(for_sale),
       "target_percent": "-10",
       "target_price": target_price,
       "date_added": current_time.strftime("%m-%d-%Y %I:%M:%S %p")
@@ -341,55 +378,9 @@ def price_add():
     text = f"{name} Added!"
     return redirect(f"/game_list?t={text}")
   except:
+    print(traceback.format_exc())
     text = "Something went wrong!"
     return redirect(f"/game_list?t={text}")
-
-
-## GAME LIST ##
-
-
-@app.route("/game_list", methods=['GET'])
-def game_list():
-  if session.get('logged_in'):
-    pass
-  else:
-    return redirect("/")
-  text = request.args.get("t")
-  result = ""
-  with open(f"{PATH}game_item.html", "r") as f:
-    list = f.read()
-  with open(f"{PATH}game_list.html", "r") as f:
-    page = f.read()
-  matches = db.prefix("game")
-  for match in matches:
-    if session.get("username") == db[match]["username"]:
-      l = list
-      l = l.replace("{url}", db[match]["url"])
-      l = l.replace("{image_url}", db[match]["image_url"])
-      l = l.replace("{old}", db[match]["old_price"])
-      l = l.replace("{game_name}", db[match]["game_name"])
-      l = l.replace("{game_price}", db[match]['price'])
-      l = l.replace("{percent_change}", db[match]["percent_change"])
-      l = l.replace("{bundle}", db[match]["bundle"])
-      l = l.replace("{target_price}", db[match]["target_price"])
-      result += l
-    else:
-      continue
-  if session.get("admin"):
-    page = page.replace(
-      "{admin}",
-      "<a href='/admin'><button class ='btn' id='back'>Admin</button></a>")
-  else:
-    page = page.replace("{admin}", "")
-  page = page.replace("{game_list}", result)
-  username = session.get("username")
-  page = page.replace("{user}", username)
-  if text == None:
-    page = page.replace("{t}", "")
-  else:
-    page = page.replace("{t}", text)
-  return page
-
 
 @csrf.exempt
 @app.route("/price_target", methods=['POST'])
