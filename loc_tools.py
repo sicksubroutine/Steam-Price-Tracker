@@ -72,7 +72,7 @@ def purge_old_tokens() -> None:
         logging.info("Token Purged")
     logging.info(f"{count} Tokens Purged")
   except:
-    logging.info(f"Error purging old tokens")
+    logging.info("Error purging old tokens")
     pass
 
 
@@ -80,7 +80,12 @@ def compare() -> None:
   try:
     count = 0
     matches = db.prefix("game")
+    user_list = db.prefix("user")
     for match in matches:
+      username = db[match]["username"]
+      for user in user_list:
+            if db[user]["username"] == username:
+              email = db[user]["email"]
       url = db[match]["url"]
       bundle = db[match]["bundle"]
       if bundle == "Not a Bundle":
@@ -89,9 +94,9 @@ def compare() -> None:
         bundle = True
       name, new_price, image_url, for_sale = scrape(url, bundle)
       if for_sale and db[match]["for_sale"] == False:
-        pass
         logging.info(f"{db[match]['game_name']} is now for sale!")
-        #TODO: send mail that game is now for sale
+        price_change_mail(email, "0", new_price, "0", url,
+                            name, image_url, for_sale)
       new_price = float(new_price[1:])
       old_price = float(db[match]["price"][1:])
       percent_change = round((new_price - old_price) / old_price * 100, 2)
@@ -101,19 +106,12 @@ def compare() -> None:
       if new_price != old_price:
         count +=1
         if percent_change <= target_percent:
-          username = db[match]["username"]
-          user_list = db.prefix("user")
-          for user in user_list:
-            if db[user]["username"] == username:
-              email = db[user]["email"]
-            else:
-              continue
           db[match]["old_price"] = f"${old_price}"
           db[match]["price"] = f"${new_price}"
           db[match]["percent_change"] = f"{percent_change}"
           logging.info(f"{name} - {new_price} - decreased by {percent_change}%")
           price_change_mail(email, old_price, new_price, percent_change, url,
-                            name, image_url)
+                            name, image_url, for_sale)
         else:
           db[match]["old_price"] = f"${old_price}"
           db[match]["price"] = f"${new_price}"
@@ -127,9 +125,13 @@ def compare() -> None:
     logging.info("Error updating prices!")
     pass
     
-def price_change_mail(recipent, old, new, per, url, name, image_url) -> None:
-  with open(f"{PATH}price_change.html", "r") as f:
-    template = f.read()
+def price_change_mail(recipent, old, new, per, url, name, image_url, for_sale) -> None:
+  if for_sale:
+    with open(f"{PATH}price_change.html", "r") as f:
+      template = f.read()
+  elif not for_sale:
+    with open(f"{PATH}for_sale.html", "r") as f:
+      template = f.read()
   template = template.replace("{image_url}", image_url)
   template = template.replace("{percent_change}", f"{per}")
   template = template.replace("{desc}", name)

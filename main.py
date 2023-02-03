@@ -7,7 +7,6 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
 #TODO: Create different "sections" on the game list (bundles, games not for sale, and so on)
-#TODO: send mail that game is now for sale
 
 ## SETUP ##
 
