@@ -21,14 +21,15 @@ limiter.init_app(app)
 
 ## Testing/Direct Database Modification
 
+"""
 #game testing area
 matches = db.prefix("game")
 for match in matches:
-  if db[match]["for_sale"] == "True":
-    db[match]["for_sale"] == True
-  elif db[match]["for_sale"] == "False":
-    db[match]["for_sale"] == False
-"""
+  if db[match]["game_name"] == "Anger Foot":
+    db[match]["for_sale"] = False
+    logging.info(db[match])
+    logging.info(f"Type for for Sale is {type(db[match]['for_sale'])}")
+
 #user testing area
 matches = db.prefix("user")
 for match in matches:
@@ -513,7 +514,7 @@ def background_task():
     schedule.run_pending()
     time.sleep(5)
 
-
+chores()
 if __name__ == "__main__":
   schedule.every(4).hours.do(chores)
   t = threading.Thread(target=background_task)

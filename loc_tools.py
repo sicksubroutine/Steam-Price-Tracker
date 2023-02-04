@@ -1,5 +1,5 @@
 from bs4 import BeautifulSoup
-import requests, random, hashlib, string, os, datetime, time, logging
+import requests, random, hashlib, string, os, datetime, time, logging, traceback
 from replit import db
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -75,7 +75,6 @@ def purge_old_tokens() -> None:
     logging.info("Error purging old tokens")
     pass
 
-
 def compare() -> None:
   try:
     count = 0
@@ -94,34 +93,42 @@ def compare() -> None:
         bundle = True
       name, new_price, image_url, for_sale = scrape(url, bundle)
       if for_sale and db[match]["for_sale"] == False:
-        logging.info(f"{db[match]['game_name']} is now for sale!")
-        price_change_mail(email, "0", new_price, "0", url,
-                            name, image_url, for_sale)
-      new_price = float(new_price[1:])
-      old_price = float(db[match]["price"][1:])
-      percent_change = round((new_price - old_price) / old_price * 100, 2)
-      target_percent = float(db[match]["target_percent"])
-      if target_percent == None:
-        target_percent = float(-15)
-      if new_price != old_price:
         count +=1
-        if percent_change <= target_percent:
-          db[match]["old_price"] = f"${old_price}"
-          db[match]["price"] = f"${new_price}"
-          db[match]["percent_change"] = f"{percent_change}"
-          logging.info(f"{name} - {new_price} - decreased by {percent_change}%")
-          price_change_mail(email, old_price, new_price, percent_change, url,
-                            name, image_url, for_sale)
-        else:
-          db[match]["old_price"] = f"${old_price}"
-          db[match]["price"] = f"${new_price}"
-          db[match]["percent_change"] = f"{percent_change}"
-          logging.info(f"{name} Price increased by {percent_change}%")
+        logging.info(f"{db[match]['game_name']} is now for sale!")
+        price_change_mail(email, "0", new_price, "0", url, name, image_url, for_sale)
+        break
+      elif not for_sale and db[match]["for_sale"] == False:
+        pass
       else:
-        logging.info(f"{name} Price not changed")
+        new_price = float(new_price[1:])
+        old_price = float(db[match]["price"][1:])
+        percent_change = round((new_price - old_price) / old_price * 100, 2)
+        target_percent = float(db[match]["target_percent"])
+      if for_sale:
+        if new_price != old_price:
+          count +=1
+          if percent_change <= target_percent:
+            db[match]["old_price"] = f"${old_price}"
+            db[match]["price"] = f"${new_price}"
+            db[match]["percent_change"] = f"{percent_change}"
+            logging.info(f"{name} - {new_price} - decreased by {percent_change}%")
+            price_change_mail(email, old_price, new_price, percent_change, url,
+                              name, image_url, for_sale)
+          else:
+            db[match]["old_price"] = f"${old_price}"
+            db[match]["old_price"] = f"${old_price}"
+            db[match]["price"] = f"${new_price}"
+            db[match]["percent_change"] = f"{percent_change}"
+            logging.info(f"{name} Price increased by {percent_change}%")
+        else:
+          logging.info(f"{name} Price not changed")
+      elif not for_sale:
+        logging.info(f"{name} still not for sale")
         continue
     logging.info(f"{count} Prices Updated")
   except:
+    trace = traceback.format_exc()
+    logging.error(trace)
     logging.info("Error updating prices!")
     pass
     
