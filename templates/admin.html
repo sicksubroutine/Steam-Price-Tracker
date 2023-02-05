@@ -12,10 +12,11 @@
   <a href="/logout"><button class ="btn" id="back">Logout</button></a>
   <a href="/game_list"><button class ="btn" id="back">Game List</button></a>
   <br>
+     <a href="/chores"><button class ="btn" id="back">Run Chores</button></a>
   <div class="box-shadow">
-    
+    {% if text %}
   <span class="red_text">{{ text }}</span><br>
-    
+    {% endif %}
   <h2>Admin Panel</h2>
   <h3>Logged in as {{user}}</h3>
   </div>

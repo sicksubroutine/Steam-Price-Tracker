@@ -496,7 +496,16 @@ def delete_user():
     text = "Something went wrong!"
     return redirect(f"/admin?t={text}")
 
-
+@app.route("/chores")
+def do_chores():
+  if session.get("logged_in") and session.get("admin"):
+    chores()
+    text = "Chores Done!"
+    return redirect(f"/admin?t={text}")
+  else:
+    text = "You are not an Admin!"
+    return redirect(f"/?t={text}")
+  
 @app.route("/logout")
 def logout():
   if session.get('logged_in'):
@@ -514,9 +523,8 @@ def background_task():
     schedule.run_pending()
     time.sleep(5)
 
-chores()
 if __name__ == "__main__":
-  schedule.every(4).hours.do(chores)
+  schedule.every(12).hours.do(chores)
   t = threading.Thread(target=background_task)
   t.start()
   app.run(host='0.0.0.0', port=81)
