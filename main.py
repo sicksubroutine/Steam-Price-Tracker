@@ -21,14 +21,14 @@ limiter.init_app(app)
 
 ## Testing/Direct Database Modification
 
+
 """
 #game testing area
 matches = db.prefix("game")
 for match in matches:
-  if db[match]["game_name"] == "Anger Foot":
-    db[match]["for_sale"] = False
-    logging.info(db[match])
-    logging.info(f"Type for for Sale is {type(db[match]['for_sale'])}")
+  if db[match]["game_name"] == "HYPER DEMON":
+    print(db[match])
+
 
 #user testing area
 matches = db.prefix("user")

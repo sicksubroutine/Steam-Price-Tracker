@@ -9,47 +9,109 @@ PATH = "static/html/"
 
 logging.basicConfig(filename='app.log', level=logging.INFO)
 
+
 def scrape(url, bundle) -> str:
   try:
     r = requests.get(url)
     soup = BeautifulSoup(r.text, "html.parser")
     image = soup.find("link", rel="image_src").get("href")
     image_url = image.split("?t=")[0]
+    # bundle section
     if bundle:
-      #name = <h2 class="pageheader">
-      #price = <div class="discount_final_price">
-      bundle_name = soup.find("h2", class_="pageheader")
-      bundle_price = soup.find("div", class_="discount_final_price")
-      for_sale = True
-      return bundle_name.text.strip(), bundle_price.text.strip(
-      ), image_url, for_sale
+      bundle_name, bundle_price, for_sale = bundle_scrape(url)
+      logging.info(f"{bundle_name}")
+      return bundle_name, bundle_price, image_url, for_sale
     else:
       #game name = <div class="apphub_AppName">
       game_name = soup.find("div", class_="apphub_AppName")
-      #game price = <div class="game_purchase_price price">
-      game_price = soup.find("div", class_="game_purchase_price price")
-      section = soup.find("div", class_="game_purchase_action")
-      discount = section.find("div", class_="discount_final_price")
-      if discount != None:
-        game_price = discount
-      elif game_price == None:
-        not_for_sale = soup.find("div",
-                                 class_="game_area_comingsoon game_area_bubble")
-        when = not_for_sale.find_all("span")
-        when = when[:-1]
-        year = when[1].text
-        for_sale = False
-        game_price = f"Not for Sale until {year}"
-        game_name = game_name.text.strip()
-        return game_name, game_price, image_url, for_sale
+      logging.info(f"{game_name.text.strip()}")
+      game_price = soup.find_all("div", class_="game_purchase_price price")
+      logging.debug(f"{game_price}")
+      # discount check
+      discount = discount_check(soup)
+      if discount:
+        logging.info("Discount found")
+        game_price = discount_price(soup)
+      elif not discount:
+        logging.info("No Discount")
+        #game price = <div class="game_purchase_price price">
+        game_price = soup.find("div", class_="game_purchase_price price")
+        logging.debug(f"{game_price}")
+        demo = soup.find("div",
+                         class_="game_area_purchase_game demo_above_purchase")
+        if demo == None:
+          logging.info("No Demo div")
+      # not for sale check
+      if game_price == None:
+        logging.info("Not for sale")
+        game_price, for_sale = not_for_sale(soup)
+        return game_name.text.strip(), game_price, image_url, for_sale
       if not "$" in game_price.text.strip():
+        logging.info("$ not found -- demo div")
         game_price = soup.find_all("div", class_="game_purchase_price price")
         game_price = game_price[1]
       for_sale = True
-      return game_name.text.strip(), game_price.text.strip(), image_url, for_sale
+      return game_name.text.strip(), game_price.text.strip(
+      ), image_url, for_sale
   except:
     logging.info("Error scraping page")
     return "Error", "Error", "Error", "Error"
+
+
+def bundle_scrape(url):
+  r = requests.get(url)
+  soup = BeautifulSoup(r.text, "html.parser")
+  #name = <h2 class="pageheader">
+  #price = <div class="discount_final_price">
+  bundle_name = soup.find("h2", class_="pageheader")
+  bundle_price = soup.find("div", class_="discount_final_price")
+  for_sale = True
+  return bundle_name.text.strip(), bundle_price.text.strip(), for_sale
+
+
+def discount_check(soup):
+  section = soup.find_all("div", class_="game_purchase_action")
+  for s in section:
+    not_discount = s.find(
+      "div", class_="discount_block game_purchase_discount no_discount")
+    if not_discount == None:
+      pass
+    elif not_discount != None:
+      logging.debug("found the 'no discount' div")
+      return False
+    logging.debug("Did not find 'no discount' div")
+    discount = s.find("div", class_="discount_final_price")
+    if discount == None:
+      continue
+    if discount:
+      discount = True
+      return discount
+  else:
+    discount = False
+    return discount
+
+
+def discount_price(soup):
+  section = soup.find_all("div", class_="game_purchase_action")
+  for s in section:
+    discount = s.find("div", class_="discount_final_price")
+    if discount == None:
+      continue
+    if discount:
+      game_price = discount
+      return game_price
+
+
+def not_for_sale(soup):
+  not_for_sale = soup.find("div",
+                           class_="game_area_comingsoon game_area_bubble")
+  when = not_for_sale.find_all("span")
+  when = when[:-1]
+  year = when[1].text
+  for_sale = False
+  game_price = f"Not for Sale until {year}"
+  return game_price, for_sale
+
 
 def purge_old_tokens() -> None:
   try:
@@ -60,20 +122,22 @@ def purge_old_tokens() -> None:
     count = 0
     for match in matches:
       expiry_time = db[match]["token_expiration_time"]
-      expiry_time = datetime.datetime.strptime(expiry_time, "%m-%d-%Y %I:%M:%S %p")
+      expiry_time = datetime.datetime.strptime(expiry_time,
+                                               "%m-%d-%Y %I:%M:%S %p")
       if db[match]["token_spent"] == True:
         if expiry_time > expire_grace:
           del db[match]
-          count +=1
+          count += 1
           logging.info("Token Purged")
       elif expiry_time > old_token:
         del db[match]
-        count +=1
+        count += 1
         logging.info("Token Purged")
     logging.info(f"{count} Tokens Purged")
   except:
     logging.info("Error purging old tokens")
     pass
+
 
 def compare() -> None:
   try:
@@ -83,8 +147,8 @@ def compare() -> None:
     for match in matches:
       username = db[match]["username"]
       for user in user_list:
-            if db[user]["username"] == username:
-              email = db[user]["email"]
+        if db[user]["username"] == username:
+          email = db[user]["email"]
       url = db[match]["url"]
       bundle = db[match]["bundle"]
       if bundle == "Not a Bundle":
@@ -94,9 +158,10 @@ def compare() -> None:
       logging.info(f"Scraping {db[match]['game_name']}")
       name, new_price, image_url, for_sale = scrape(url, bundle)
       if for_sale and db[match]["for_sale"] == False:
-        count +=1
+        count += 1
         logging.info(f"{db[match]['game_name']} is now for sale!")
-        price_change_mail(email, "0", new_price, "0", url, name, image_url, for_sale)
+        price_change_mail(email, "0", new_price, "0", url, name, image_url,
+                          for_sale)
         db[match]["for_sale"] = True
         db[match]["price"] = new_price
         break
@@ -109,12 +174,13 @@ def compare() -> None:
         target_percent = float(db[match]["target_percent"])
       if for_sale:
         if new_price != old_price:
-          count +=1
+          count += 1
           if percent_change <= target_percent:
             db[match]["old_price"] = f"${old_price}"
             db[match]["price"] = f"${new_price}"
             db[match]["percent_change"] = f"{percent_change}"
-            logging.info(f"{name} - {new_price} - decreased by {percent_change}%")
+            logging.info(
+              f"{name} - {new_price} - decreased by {percent_change}%")
             price_change_mail(email, old_price, new_price, percent_change, url,
                               name, image_url, for_sale)
           else:
@@ -134,8 +200,10 @@ def compare() -> None:
     logging.error(trace)
     logging.info("Error updating prices!")
     pass
-    
-def price_change_mail(recipent, old, new, per, url, name, image_url, for_sale) -> None:
+
+
+def price_change_mail(recipent, old, new, per, url, name, image_url,
+                      for_sale) -> None:
   if for_sale:
     with open(f"{PATH}price_change.html", "r") as f:
       template = f.read()
@@ -168,19 +236,19 @@ def price_change_mail(recipent, old, new, per, url, name, image_url, for_sale) -
 def confirm_mail(recipent, token, type) -> None:
   URL = "https://scraping-steam-prices.thechaz.repl.co/"
   with open(f"{PATH}confirm_token.html", "r") as f:
-      template = f.read()
+    template = f.read()
   if type == "confirm":
-      template = template.replace("{token}", token)
-      template = template.replace(
-        "{desc}", "Confirm your Email Address by clickling below.")
-      template = template.replace("{url}", f"{URL}/")
-      template = template.replace("{type}", type)
+    template = template.replace("{token}", token)
+    template = template.replace(
+      "{desc}", "Confirm your Email Address by clickling below.")
+    template = template.replace("{url}", f"{URL}/")
+    template = template.replace("{type}", type)
   elif type == "recovery":
-      template = template.replace("{token}", token)
-      template = template.replace(
-        "{desc}", "Recover your password by clicking the link below.")
-      template = template.replace("{url}", f"{URL}/")
-      template = template.replace("{type}", type)
+    template = template.replace("{token}", token)
+    template = template.replace(
+      "{desc}", "Recover your password by clicking the link below.")
+    template = template.replace("{url}", f"{URL}/")
+    template = template.replace("{type}", type)
   else:
     logging.info(f"{type} is not a valid option")
     return
@@ -241,23 +309,27 @@ def gen_unique_token(username) -> str:
   }
   return db_key
 
+
 def token_expiration(token) -> bool:
   now = datetime.datetime.now()
   matches = db.prefix("token")
   for match in matches:
     if db[match]["token"] == token and db[match]["token_spent"] == False:
       expiry_time = db[match]["token_expiration_time"]
-      expiry_time = datetime.datetime.strptime(expiry_time, "%m-%d-%Y %I:%M:%S %p")
+      expiry_time = datetime.datetime.strptime(expiry_time,
+                                               "%m-%d-%Y %I:%M:%S %p")
       if now > expiry_time:
         return True
       elif now < expiry_time:
         return False
+
 
 def time_get() -> str:
   time = datetime.datetime.now()
   PT_time = time - datetime.timedelta(hours=8)
   string_time = PT_time.strftime("%m-%d-%Y %I:%M:%S %p")
   return string_time, PT_time
+
 
 def chores() -> None:
   try:
