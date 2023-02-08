@@ -19,12 +19,12 @@ def scrape(url, bundle) -> str:
     # bundle section
     if bundle:
       bundle_name, bundle_price, for_sale = bundle_scrape(url)
-      logging.info(f"{bundle_name}")
+      logging.info(f"=={bundle_name}==")
       return bundle_name, bundle_price, image_url, for_sale
     else:
       #game name = <div class="apphub_AppName">
       game_name = soup.find("div", class_="apphub_AppName")
-      logging.info(f"{game_name.text.strip()}")
+      logging.info(f"=={game_name.text.strip()}==")
       game_price = soup.find_all("div", class_="game_purchase_price price")
       logging.debug(f"{game_price}")
       # discount check
@@ -155,7 +155,7 @@ def compare() -> None:
         bundle = False
       else:
         bundle = True
-      logging.info(f"Scraping {db[match]['game_name']}")
+      logging.info(f"==Scraping {db[match]['game_name']}==")
       name, new_price, image_url, for_sale = scrape(url, bundle)
       if for_sale and db[match]["for_sale"] == False:
         count += 1
@@ -190,11 +190,11 @@ def compare() -> None:
             db[match]["percent_change"] = f"{percent_change}"
             logging.info(f"{name} Price increased by {percent_change}%")
         else:
-          logging.info(f"{name} Price not changed")
+          logging.info(f"=={name} Price not changed==")
       elif not for_sale:
-        logging.info(f"{name} still not for sale")
+        logging.info(f"=={name} still not for sale==")
         continue
-    logging.info(f"{count} Prices Updated")
+    logging.info(f"**{count} Prices Updated**")
   except:
     trace = traceback.format_exc()
     logging.error(trace)

@@ -107,9 +107,11 @@ input:hover{
   display: grid; 
   grid-template-columns: repeat(3, 1fr); 
   grid-gap: 5px;
+  grid-auto-flow: dense;
 }
 .game-box {
   border: 2px solid #8f8f8f;
+  text-align: center;
 }
 .game-list-top {
   width: 35%;

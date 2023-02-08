@@ -6,8 +6,6 @@ from flask_seasurf import SeaSurf
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
-#TODO: Create different "sections" on the game list (bundles, games not for sale, and so on)
-
 ## SETUP ##
 
 app = Flask(__name__, static_url_path='/static')
@@ -26,9 +24,8 @@ limiter.init_app(app)
 #game testing area
 matches = db.prefix("game")
 for match in matches:
-  if db[match]["game_name"] == "HYPER DEMON":
-    print(db[match])
-
+  print(db[match]["for_sale"])
+    
 
 #user testing area
 matches = db.prefix("user")
@@ -314,7 +311,8 @@ def game_list():
         "game_price": db[match]['price'],
         "percent_change": db[match]["percent_change"],
         "bundle": db[match]["bundle"],
-        "target_price": db[match]["target_price"]
+        "target_price": db[match]["target_price"],
+        "for_sale": db[match]["for_sale"]
       })
   admin = False
   if session.get("admin"):
@@ -339,11 +337,9 @@ def price_add():
     if bundle == None:
       bundle = False
       name, price, image_url, for_sale = scrape(url, bundle)
-      bundle = "Not a Bundle"
     else:
       bundle = True
       name, price, image_url, for_sale = scrape(url, bundle)
-      bundle = "Bundle"
     print(f"{name} - {price} - {for_sale}")
     if for_sale:
       price_t = price
@@ -370,7 +366,7 @@ def price_add():
       "image_url": image_url,
       "old_price": "$0",
       "percent_change": "0",
-      "for_sale": str(for_sale),
+      "for_sale": for_sale,
       "target_percent": "-10",
       "target_price": target_price,
       "date_added": current_time.strftime("%m-%d-%Y %I:%M:%S %p")
@@ -524,7 +520,7 @@ def background_task():
     time.sleep(5)
 
 if __name__ == "__main__":
-  schedule.every(12).hours.do(chores)
+  schedule.every(6).hours.do(chores)
   t = threading.Thread(target=background_task)
   t.start()
   app.run(host='0.0.0.0', port=81)
