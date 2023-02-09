@@ -151,17 +151,12 @@ def compare() -> None:
           email = db[user]["email"]
       url = db[match]["url"]
       bundle = db[match]["bundle"]
-      if bundle == "Not a Bundle":
-        bundle = False
-      else:
-        bundle = True
       logging.info(f"==Scraping {db[match]['game_name']}==")
       name, new_price, image_url, for_sale = scrape(url, bundle)
       if for_sale and db[match]["for_sale"] == False:
         count += 1
         logging.info(f"{db[match]['game_name']} is now for sale!")
-        price_change_mail(email, "0", new_price, "0", url, name, image_url,
-                          for_sale)
+        price_change_mail(email, "0", new_price, "0", url, name, image_url, for_sale)
         db[match]["for_sale"] = True
         db[match]["price"] = new_price
         break

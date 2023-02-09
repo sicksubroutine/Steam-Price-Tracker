@@ -6,6 +6,8 @@ from flask_seasurf import SeaSurf
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
+## TODO: Ability to import Steam Wishlist
+
 ## SETUP ##
 
 app = Flask(__name__, static_url_path='/static')
@@ -24,7 +26,9 @@ limiter.init_app(app)
 #game testing area
 matches = db.prefix("game")
 for match in matches:
-  print(db[match]["for_sale"])
+  if db[match]["game_name"] == "CULTIC":
+    print(db[match]["bundle"])
+    print(db[match]["for_sale"])
     
 
 #user testing area
@@ -340,7 +344,7 @@ def price_add():
     else:
       bundle = True
       name, price, image_url, for_sale = scrape(url, bundle)
-    print(f"{name} - {price} - {for_sale}")
+    logging.info(f"{name} - {price} - {for_sale}")
     if for_sale:
       price_t = price
       price_t = float(price_t[1:])
@@ -374,7 +378,7 @@ def price_add():
     text = f"{name} Added!"
     return redirect(f"/game_list?t={text}")
   except:
-    print(traceback.format_exc())
+    logging.info(traceback.format_exc())
     text = "Something went wrong!"
     return redirect(f"/game_list?t={text}")
 
@@ -430,7 +434,7 @@ def delete_game():
     game = request.args.get("d")
     user = session.get("username")
     matches = db.prefix("game")
-    print(game)
+    logging.info(game)
     for match in matches:
       if db[match]["game_name"] == game and db[match]["username"] == user:
         del db[match]
