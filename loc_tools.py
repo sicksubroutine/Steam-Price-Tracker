@@ -45,6 +45,7 @@ def scrape(url, bundle) -> str:
       if game_price == None:
         logging.info("Not for sale")
         game_price, for_sale = not_for_sale(soup)
+        #logging.debug(f"[After not_for_sale function]{game_price} {for_sale}")
         return game_name.text.strip(), game_price, image_url, for_sale
       if not "$" in game_price.text.strip():
         logging.info("$ not found -- demo div")
@@ -55,6 +56,7 @@ def scrape(url, bundle) -> str:
       ), image_url, for_sale
   except:
     logging.info("Error scraping page")
+    logging.info(traceback.format_exc())
     return "Error", "Error", "Error", "Error"
 
 
@@ -103,14 +105,19 @@ def discount_price(soup):
 
 
 def not_for_sale(soup):
-  not_for_sale = soup.find("div",
-                           class_="game_area_comingsoon game_area_bubble")
-  when = not_for_sale.find_all("span")
-  when = when[:-1]
-  year = when[1].text
-  for_sale = False
-  game_price = f"Not for Sale until {year}"
-  return game_price, for_sale
+  try:
+    not_for_sale = soup.find("div",
+                             class_="game_area_comingsoon game_area_bubble")
+    when = not_for_sale.find_all("span")
+    when = when[:-1]
+    year = when[1].text
+    for_sale = False
+    game_price = f"Not for Sale until {year}"
+  except:
+    game_price = "Not for sale"
+    for_sale = False
+  finally:
+    return game_price, for_sale
 
 
 def purge_old_tokens() -> None:

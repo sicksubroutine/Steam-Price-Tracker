@@ -344,7 +344,7 @@ def price_add():
     else:
       bundle = True
       name, price, image_url, for_sale = scrape(url, bundle)
-    logging.info(f"{name} - {price} - {for_sale}")
+    logging.info(f"[Price Add Function] {name} - {price} - {for_sale}")
     if for_sale:
       price_t = price
       price_t = float(price_t[1:])
