@@ -297,10 +297,8 @@ def pass_reset_funct():
 
 @app.route("/game_list", methods=['GET'])
 def game_list():
-  if session.get('logged_in'):
-    pass
-  else:
-    return redirect("/")
+  if not session.get('logged_in'):
+    return redirect("/") 
   username = session.get("username")
   text = request.args.get("t")
   game_list = []
@@ -329,9 +327,7 @@ def game_list():
 @csrf.exempt
 @app.route("/price_add", methods=['POST'])
 def price_add():
-  if session.get('logged_in'):
-    pass
-  else:
+  if not session.get('logged_in'):
     return redirect("/")
   try:
     form = request.form
@@ -385,9 +381,7 @@ def price_add():
 @csrf.exempt
 @app.route("/price_target", methods=['POST'])
 def price_target():
-  if session.get("logged_in"):
-    pass
-  else:
+  if not session.get("logged_in"):
     text = "You are not logged in!"
     return redirect(f"/login?t={text}")
   try:
@@ -436,9 +430,7 @@ def wishlist_add():
 
 @app.route("/delete_game", methods=["GET"])
 def delete_game():
-  if session.get("logged_in"):
-    pass_reset_funct
-  else:
+  if not session.get("logged_in"):
     text = "You are not logged in!"
     return redirect(f"/login?t={text}")
   try:
@@ -464,33 +456,31 @@ def delete_game():
 @csrf.include
 @app.route("/admin", methods=['GET'])
 def admin_panel():
-  if session.get("admin") and session.get("logged_in"):
-    user_list = []
-    matches = db.prefix("user")
-    for match in matches:
-      user_list.append({
-        "username": db[match]["username"],
-        "email": db[match]["email"],
-        "admin": db[match]["admin"],
-        "last_login": db[match]["last_login"],
-        "creation_date": db[match]["creation_date"],
-        "email_confirmed": str(db[match]["email_confirmed"])
-      })
-    text = request.args.get("t")
-    return render_template("admin.html",
-                           user_list=user_list,
-                           user=session.get("username"),
-                           text=text)
-  else:
+  if not session.get("admin") and session.get("logged_in"):
     text = "You are not an Admin!"
-    return redirect(f"/login?t={text}")
+    return redirect(f"/?t={text}")
+  user_list = []
+  matches = db.prefix("user")
+  for match in matches:
+    user_list.append({
+      "username": db[match]["username"],
+      "email": db[match]["email"],
+      "admin": db[match]["admin"],
+      "last_login": db[match]["last_login"],
+      "creation_date": db[match]["creation_date"],
+      "email_confirmed": str(db[match]["email_confirmed"])
+    })
+  text = request.args.get("t")
+  return render_template("admin.html",
+                         user_list=user_list,
+                         user=session.get("username"),
+                         text=text)
+    
 
 
 @app.route("/delete", methods=['POST'])
 def delete_user():
-  if session.get("admin") and session.get("logged_in"):
-    pass
-  else:
+  if not session.get("admin") and session.get("logged_in"):
     text = "You are not an Admin!"
     return redirect(f"/?t={text}")
   try:
@@ -509,25 +499,22 @@ def delete_user():
 
 @app.route("/chores")
 def do_chores():
-  if session.get("logged_in") and session.get("admin"):
-    chores()
-    text = "Chores Done!"
-    return redirect(f"/admin?t={text}")
-  else:
+  if not session.get("logged_in") and session.get("admin"):
     text = "You are not an Admin!"
     return redirect(f"/?t={text}")
+  chores()
+  text = "Chores Done!"
+  return redirect(f"/admin?t={text}")
   
 @app.route("/logout")
 def logout():
-  if session.get('logged_in'):
-    session.pop("username", None)
-    session.pop("logged_in", None)
-    session.pop("admin", None)
-    return redirect("/")
-  else:
+  if not session.get('logged_in'):
     text = "Error, not logged in!"
     return redirect(f"/login?t={text}")
-
+  session.pop("username", None)
+  session.pop("logged_in", None)
+  session.pop("admin", None)
+  return redirect("/")
 
 def background_task():
   while True:

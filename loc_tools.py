@@ -6,7 +6,6 @@ from email.mime.text import MIMEText
 import smtplib
 
 PATH = "static/html/"
-
 logging.basicConfig(filename='app.log', level=logging.INFO)
 
 
@@ -348,4 +347,26 @@ def chores() -> None:
     logging.info("====CHORES=RUN=COMPLETE====")
   except:
     logging.info("====CHORES=RUN=FAILED====")
+    pass
+
+def wishlist_process(steamID, username) -> None:
+  page = 0
+  wishlist = {}
+  wishlist_url = f"https://store.steampowered.com/wishlist/profiles/{steamID}/wishlistdata"
+  try:
+    while True:
+      response = requests.get(wishlist_url, params={"p": page})
+      if response.status_code == 500:
+        logging.info("Error: Account Privacy settings are probably blocking wishlist lookup.")
+        break
+      data = response.json()
+      if not data:
+        break
+      wishlist.update(data)
+      page += 1
+    wishlist_url = []
+    for game_id, game in wishlist.items():
+      #game_name = game["name"]
+      wishlist_url.append(game_id)
+  except:
     pass
