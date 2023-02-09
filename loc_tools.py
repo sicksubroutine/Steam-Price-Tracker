@@ -10,7 +10,7 @@ PATH = "static/html/"
 logging.basicConfig(filename='app.log', level=logging.INFO)
 
 
-def scrape(url, bundle) -> str:
+def scrape(url, bundle):
   try:
     r = requests.get(url)
     soup = BeautifulSoup(r.text, "html.parser")
@@ -71,7 +71,7 @@ def bundle_scrape(url):
   return bundle_name.text.strip(), bundle_price.text.strip(), for_sale
 
 
-def discount_check(soup):
+def discount_check(soup) -> bool:
   section = soup.find_all("div", class_="game_purchase_action")
   for s in section:
     not_discount = s.find(
@@ -93,7 +93,7 @@ def discount_check(soup):
     return discount
 
 
-def discount_price(soup):
+def discount_price(soup) -> str:
   section = soup.find_all("div", class_="game_purchase_action")
   for s in section:
     discount = s.find("div", class_="discount_final_price")

@@ -422,6 +422,17 @@ def price_target():
     text = "Something went wrong!"
     return redirect(f"/game_list?t={text}")
 
+@app.route("/wishlist_add")
+def wishlist_add():
+  if not session.get("logged_in"):
+    text = "You are not logged in!"
+    return redirect(f"/login?t={text}")
+  else:
+    try:
+      #TODO: Finish the Wishlist Add Function
+      pass
+    except:
+      pass
 
 @app.route("/delete_game", methods=["GET"])
 def delete_game():
