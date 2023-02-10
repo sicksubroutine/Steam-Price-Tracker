@@ -7,6 +7,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
 ## TODO: Ability to import Steam Wishlist
+## TODO: Add price change date
 
 ## SETUP ##
 
@@ -351,9 +352,7 @@ def price_add():
     current_time = datetime.datetime.now()
     matches = db.prefix("game")
     for match in matches:
-      if db[match]["game_name"] == None:
-        continue
-      elif db[match]["game_name"] == name:
+      if db[match]["game_name"] == name:
         text = "Game Already Added! Try another URL!"
         return redirect(f"/game_list?t={text}")
     game_key = "game" + str(random.randint(100_000_000, 999_999_999))
@@ -416,12 +415,15 @@ def price_target():
     text = "Something went wrong!"
     return redirect(f"/game_list?t={text}")
 
-@app.route("/wishlist_add")
+@app.route("/wishlist_add", methods=['POST'])
 def wishlist_add():
   if not session.get("logged_in"):
     text = "You are not logged in!"
     return redirect(f"/login?t={text}")
   else:
+    form = request.form
+    username = session.get("username")
+    steamID = form.get("steamID")
     try:
       #TODO: Finish the Wishlist Add Function
       pass

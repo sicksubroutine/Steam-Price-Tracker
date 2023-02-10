@@ -369,4 +369,4 @@ def wishlist_process(steamID, username) -> None:
       #game_name = game["name"]
       wishlist_url.append(game_id)
   except:
-    pass
+    logging.info("Error: Unable to fetch wishlist data.")
