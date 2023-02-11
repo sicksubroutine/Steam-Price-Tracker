@@ -52,7 +52,11 @@
     Bundle? <input type="checkbox" name="bundle" value="y"><br>
   <input class="btn" type="submit" value="Submit">
 </form>
-  <br>
+  <form action="/wishlist_add" method="post">
+   <span>Enter a Steam ID:</span><br> <span class="small_text">(Make sure game details are set to "public" in your Steam Privacy Settings.</span> <br>
+  <input type="text" class="url" name="steamID" placeholder="SteamID" minlength="17" maxlength="17"><br>
+  <input class="btn" type="submit" value="Submit">
+    </form>
  <select id="game-filter" class="url" onchange="filterGames()">
     <option value="all">All</option>
    <option value="not-for-sale">Not For Sale</option>

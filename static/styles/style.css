@@ -140,3 +140,8 @@ input:hover{
   font-weight: bold;
   color: red;
 }
+
+.small_text {
+  font-size: 0.85em;
+  color: red;
+}

@@ -1,13 +1,14 @@
 import os, random, time, schedule, datetime, threading, traceback, logging
 from replit import db
 from flask import Flask, request, session, redirect, render_template
-from loc_tools import scrape, saltGet, saltPass, chores, confirm_mail, gen_unique_token, token_expiration
+from loc_tools import scrape, saltGet, saltPass, chores, confirm_mail, gen_unique_token, token_expiration, wishlist_process
 from flask_seasurf import SeaSurf
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
 ## TODO: Ability to import Steam Wishlist
 ## TODO: Add price change date
+## TODO: Make the game list page look prettier
 
 ## SETUP ##
 
@@ -20,7 +21,7 @@ logging.basicConfig(filename='app.log', level=logging.INFO)
 limiter = Limiter(key_func=get_remote_address)
 limiter.init_app(app)
 
-## Testing/Direct Database Modification
+## Testing/Direct Database Modification ##
 
 
 """
@@ -46,6 +47,8 @@ for match in matches:
   count += 1
 print(f"{count}")
 """
+
+## Index ##
 
 @app.route("/", methods=["GET"])
 def index():
@@ -415,6 +418,7 @@ def price_target():
     text = "Something went wrong!"
     return redirect(f"/game_list?t={text}")
 
+@csrf.exempt
 @app.route("/wishlist_add", methods=['POST'])
 def wishlist_add():
   if not session.get("logged_in"):
@@ -424,6 +428,7 @@ def wishlist_add():
     form = request.form
     username = session.get("username")
     steamID = form.get("steamID")
+    wishlist_process(steamID, username)
     try:
       #TODO: Finish the Wishlist Add Function
       pass
@@ -507,6 +512,8 @@ def do_chores():
   chores()
   text = "Chores Done!"
   return redirect(f"/admin?t={text}")
+
+## LOGOUT ##
   
 @app.route("/logout")
 def logout():
@@ -517,6 +524,8 @@ def logout():
   session.pop("logged_in", None)
   session.pop("admin", None)
   return redirect("/")
+
+## CHORES/MISC ##
 
 def background_task():
   while True:
