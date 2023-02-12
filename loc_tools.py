@@ -368,5 +368,6 @@ def wishlist_process(steamID, username) -> None:
     for game_id, game in wishlist.items():
       #game_name = game["name"]
       wishlist_url.append(game_id)
+    wishlist_url_path = f"https://store.steampowered.com/app/{}"
   except:
     logging.info("Error: Unable to fetch wishlist data.")
