@@ -9,6 +9,8 @@ from flask_limiter.util import get_remote_address
 ## TODO: Ability to import Steam Wishlist
 ## TODO: Add price change date
 ## TODO: Make the game list page look prettier
+## TODO: Take into account games in a "pre-order" state
+## TODO: Unify all time to be the same format
 
 ## SETUP ##
 
@@ -28,10 +30,8 @@ limiter.init_app(app)
 #game testing area
 matches = db.prefix("game")
 for match in matches:
-  if db[match]["game_name"] == "CULTIC":
-    print(db[match]["bundle"])
-    print(db[match]["for_sale"])
-    
+  db[match]["wishlist"] = False
+  db[match]["price_change_date"] = ""  
 
 #user testing area
 matches = db.prefix("user")
@@ -371,6 +371,8 @@ def price_add():
       "for_sale": for_sale,
       "target_percent": "-10",
       "target_price": target_price,
+      "price_change_date": "",
+      "wishlist": False,
       "date_added": current_time.strftime("%m-%d-%Y %I:%M:%S %p")
     }
     text = f"{name} Added!"

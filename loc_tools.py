@@ -147,6 +147,7 @@ def purge_old_tokens() -> None:
 
 def compare() -> None:
   try:
+    string_time, PT_time = time_get()
     count = 0
     matches = db.prefix("game")
     user_list = db.prefix("user")
@@ -165,6 +166,7 @@ def compare() -> None:
         price_change_mail(email, "0", new_price, "0", url, name, image_url, for_sale)
         db[match]["for_sale"] = True
         db[match]["price"] = new_price
+        db[match]["price_change_date"] = string_time
         break
       elif not for_sale and db[match]["for_sale"] == False:
         pass
@@ -180,6 +182,7 @@ def compare() -> None:
             db[match]["old_price"] = f"${old_price}"
             db[match]["price"] = f"${new_price}"
             db[match]["percent_change"] = f"{percent_change}"
+            db[match]["price_change_date"] = string_time
             logging.info(
               f"{name} - {new_price} - decreased by {percent_change}%")
             price_change_mail(email, old_price, new_price, percent_change, url,
@@ -189,6 +192,7 @@ def compare() -> None:
             db[match]["old_price"] = f"${old_price}"
             db[match]["price"] = f"${new_price}"
             db[match]["percent_change"] = f"{percent_change}"
+            db[match]["price_change_date"] = string_time
             logging.info(f"{name} Price increased by {percent_change}%")
         else:
           logging.info(f"=={name} Price not changed==")
@@ -368,6 +372,31 @@ def wishlist_process(steamID, username) -> None:
     for game_id, game in wishlist.items():
       #game_name = game["name"]
       wishlist_url.append(game_id)
-    wishlist_url_path = f"https://store.steampowered.com/app/{}"
+    string_time, PT_time = time_get()
+    for game_id in wishlist_url:
+      url = f"https://store.steampowered.com/app/{game_id}"
+      name, price, image_url, for_sale = scrape(url, False)
+      matches = db.prefix("game")
+      for match in matches:
+        if db[match]["game_name"] == name and db[match]["username"] == username:
+          db[match]["wishlist"] = True
+          continue
+      game_key = "game" + str(random.randint(100_000_000, 999_999_999))
+      db[game_key] = {
+        "game_name": name,
+        "price": price,
+        "url": url,
+        "username": username,
+        "bundle": False,
+        "image_url": image_url,
+        "old_price": "$0",
+        "percent_change": "0",
+        "for_sale": for_sale,
+        "target_percent": "-10",
+        "target_price": target_price,
+        "price_change_date": "",
+        "wishlist": False,
+        "date_added": string_time
+      }
   except:
     logging.info("Error: Unable to fetch wishlist data.")
