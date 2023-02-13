@@ -31,8 +31,8 @@ limiter.init_app(app)
 #game testing area
 matches = db.prefix("game")
 for match in matches:
-  db[match]["wishlist"] = False
-  db[match]["price_change_date"] = ""  
+  print(db[match]["game_name"]+ str(db[match]["has_demo"]))
+
 
 #user testing area
 matches = db.prefix("user")
@@ -319,6 +319,7 @@ def game_list():
         "percent_change": db[match]["percent_change"],
         "bundle": db[match]["bundle"],
         "target_price": db[match]["target_price"],
+        "has_demo": db[match]["has_demo"],
         "for_sale": db[match]["for_sale"]
       })
   admin = False
@@ -341,10 +342,10 @@ def price_add():
     username = session.get("username")
     if bundle == None:
       bundle = False
-      name, price, image_url, for_sale = scrape(url, bundle)
+      name, price, image_url, for_sale, has_demo = scrape(url, bundle)
     else:
       bundle = True
-      name, price, image_url, for_sale = scrape(url, bundle)
+      name, price, image_url, for_sale, has_demo = scrape(url, bundle)
     logging.info(f"[Price Add Function] {name} - {price} - {for_sale}")
     if for_sale:
       price_t = price
@@ -374,6 +375,7 @@ def price_add():
       "target_price": target_price,
       "price_change_date": "",
       "wishlist": False,
+      "has_demo": has_demo,
       "date_added": string_time
     }
     text = f"{name} Added!"

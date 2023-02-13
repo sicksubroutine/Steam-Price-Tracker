@@ -19,7 +19,7 @@ def scrape(url, bundle):
     if bundle:
       bundle_name, bundle_price, for_sale = bundle_scrape(url)
       logging.info(f"=={bundle_name}==")
-      return bundle_name, bundle_price, image_url, for_sale
+      return bundle_name, bundle_price, image_url, for_sale, False
     else:
       #game name = <div class="apphub_AppName">
       game_name = soup.find("div", class_="apphub_AppName")
@@ -28,6 +28,7 @@ def scrape(url, bundle):
       logging.debug(f"{game_price}")
       # discount check
       discount = discount_check(soup)
+      demo = soup.find("div", class_="game_area_purchase_game demo_above_purchase")
       if discount:
         logging.info("Discount found")
         game_price = discount_price(soup)
@@ -36,23 +37,25 @@ def scrape(url, bundle):
         #game price = <div class="game_purchase_price price">
         game_price = soup.find("div", class_="game_purchase_price price")
         logging.debug(f"{game_price}")
-        demo = soup.find("div",
-                         class_="game_area_purchase_game demo_above_purchase")
-        if demo == None:
-          logging.info("No Demo div")
+      if demo == None:
+        logging.info("==Has No Demo==")
+        has_demo = False
+      else:
+        has_demo = True
+        logging.info("==Has Demo==")
       # not for sale check
       if game_price == None:
         logging.info("Not for sale")
         game_price, for_sale = not_for_sale(soup)
         #logging.debug(f"[After not_for_sale function]{game_price} {for_sale}")
-        return game_name.text.strip(), game_price, image_url, for_sale
+        return game_name.text.strip(), game_price, image_url, for_sale, has_demo
       if not "$" in game_price.text.strip():
         logging.info("$ not found -- demo div")
         game_price = soup.find_all("div", class_="game_purchase_price price")
         game_price = game_price[1]
       for_sale = True
       return game_name.text.strip(), game_price.text.strip(
-      ), image_url, for_sale
+      ), image_url, for_sale, has_demo
   except:
     logging.info("Error scraping page")
     logging.info(traceback.format_exc())
@@ -159,7 +162,14 @@ def compare() -> None:
       url = db[match]["url"]
       bundle = db[match]["bundle"]
       logging.info(f"==Scraping {db[match]['game_name']}==")
-      name, new_price, image_url, for_sale = scrape(url, bundle)
+      name, new_price, image_url, for_sale, has_demo = scrape(url, bundle)
+      logging.info(f"{name} {new_price} For Sale:{for_sale} Demo:{has_demo}")
+      if db[match]["has_demo"] == False and has_demo == True:
+        db[match]["has_demo"] = True
+        logging.info(f"{name} 'has_demo' value updated to true")
+      elif db[match]["has_demo"] == True and has_demo == False:
+        db[match]["has_demo"] = False
+        logging.info(f"{name} 'has_demo' value updated to false")
       if for_sale and db[match]["for_sale"] == False:
         count += 1
         logging.info(f"{db[match]['game_name']} is now for sale!")
@@ -375,7 +385,7 @@ def wishlist_process(steamID, username) -> None:
     matches = db.prefix("game")
     for game_id in wishlist_url:
       url = f"https://store.steampowered.com/app/{game_id}"
-      name, price, image_url, for_sale = scrape(url, False)
+      name, price, image_url, for_sale, has_demo = scrape(url, False)
       if for_sale:
         price_t = price
         price_t = float(price_t[1:])
@@ -402,6 +412,7 @@ def wishlist_process(steamID, username) -> None:
         "target_price": target_price,
         "price_change_date": "",
         "wishlist": False,
+        "has_demo": has_demo,
         "date_added": string_time
       }
   except:
