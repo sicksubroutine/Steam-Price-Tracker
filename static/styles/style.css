@@ -145,3 +145,18 @@ input:hover{
   font-size: 0.85em;
   color: red;
 }
+
+.price-add-box {
+  border: 2px solid #8f8f8f;
+}
+
+.wishlist-add-box {
+  border: 2px solid #8f8f8f;
+}
+
+.form-container {
+  display: grid; 
+  grid-template-columns: repeat(2, 1fr); 
+  grid-gap: 5px;
+  
+}

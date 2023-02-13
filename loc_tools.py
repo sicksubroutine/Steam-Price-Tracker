@@ -370,13 +370,19 @@ def wishlist_process(steamID, username) -> None:
       page += 1
     wishlist_url = []
     for game_id, game in wishlist.items():
-      #game_name = game["name"]
       wishlist_url.append(game_id)
     string_time, PT_time = time_get()
+    matches = db.prefix("game")
     for game_id in wishlist_url:
       url = f"https://store.steampowered.com/app/{game_id}"
       name, price, image_url, for_sale = scrape(url, False)
-      matches = db.prefix("game")
+      if for_sale:
+        price_t = price
+        price_t = float(price_t[1:])
+        target_price = round(price_t - (price_t * 0.15), 2)
+        target_price = f"${target_price:.2f}"
+      else:
+        target_price = "$0"
       for match in matches:
         if db[match]["game_name"] == name and db[match]["username"] == username:
           db[match]["wishlist"] = True

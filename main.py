@@ -1,7 +1,7 @@
 import os, random, time, schedule, datetime, threading, traceback, logging
 from replit import db
 from flask import Flask, request, session, redirect, render_template
-from loc_tools import scrape, saltGet, saltPass, chores, confirm_mail, gen_unique_token, token_expiration, wishlist_process
+from loc_tools import scrape, saltGet, saltPass, chores, confirm_mail, gen_unique_token, token_expiration, wishlist_process, time_get
 from flask_seasurf import SeaSurf
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -11,6 +11,7 @@ from flask_limiter.util import get_remote_address
 ## TODO: Make the game list page look prettier
 ## TODO: Take into account games in a "pre-order" state
 ## TODO: Unify all time to be the same format
+## TODO: Remove the need to have checkbox for bundles
 
 ## SETUP ##
 
@@ -352,7 +353,7 @@ def price_add():
       target_price = f"${target_price:.2f}"
     else:
       target_price = "$0"
-    current_time = datetime.datetime.now()
+    string_time, PT_time = time_get()
     matches = db.prefix("game")
     for match in matches:
       if db[match]["game_name"] == name:
@@ -373,7 +374,7 @@ def price_add():
       "target_price": target_price,
       "price_change_date": "",
       "wishlist": False,
-      "date_added": current_time.strftime("%m-%d-%Y %I:%M:%S %p")
+      "date_added": string_time
     }
     text = f"{name} Added!"
     return redirect(f"/game_list?t={text}")

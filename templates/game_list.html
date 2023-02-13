@@ -44,19 +44,30 @@
   {% endif %}
   <a href="/game_list"><button class ="btn" id="game-list-alpha">Steam Price Tracking</button></a>
   <h3 class="login_h3">Logged in as {{ user }}</h3>
-  </div>
- 
+  </div> <br>
+<div class="form-container">
+ <div class="price-add-box">
   <form action="/price_add" method="post">
-    <p>Enter a Steam URL:</p>
+    <h2>Add a Game</h2>
+    <hr class="short">
+    Enter a Steam URL:<br>
   <input type="text" class="url" name="url" placeholder="https://store.steampowered.com/app/1286680/Tiny_Tinas_Wonderlands/"><br>
     Bundle? <input type="checkbox" name="bundle" value="y"><br>
   <input class="btn" type="submit" value="Submit">
 </form>
+ </div>
+ <div class="wishlist-add-box">
   <form action="/wishlist_add" method="post">
-   <span>Enter a Steam ID:</span><br> <span class="small_text">(Make sure game details are set to "public" in your Steam Privacy Settings.</span> <br>
+    <h2>Add your Steam Wishlist</h2>
+    <hr class="short">
+   Enter a Steam ID:<br>
+  <span class="small_text">(Make sure game details are set to "public" in your Steam Privacy Settings.</span> <br>
   <input type="text" class="url" name="steamID" placeholder="SteamID" minlength="17" maxlength="17"><br>
   <input class="btn" type="submit" value="Submit">
     </form>
+ </div>
+</div>
+  <br>
  <select id="game-filter" class="url" onchange="filterGames()">
     <option value="all">All</option>
    <option value="not-for-sale">Not For Sale</option>
