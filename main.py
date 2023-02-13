@@ -31,7 +31,8 @@ limiter.init_app(app)
 #game testing area
 matches = db.prefix("game")
 for match in matches:
-  print(db[match]["game_name"]+ str(db[match]["has_demo"]))
+  if db[match]["price_change_date"] == "":
+    db[match]["price_change_date"] = "Never"
 
 
 #user testing area
@@ -320,6 +321,7 @@ def game_list():
         "bundle": db[match]["bundle"],
         "target_price": db[match]["target_price"],
         "has_demo": db[match]["has_demo"],
+        "price_change_date": db[match]["price_change_date"],
         "for_sale": db[match]["for_sale"]
       })
   admin = False
