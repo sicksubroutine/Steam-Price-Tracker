@@ -7,8 +7,10 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
 ## TODO: Ability to import Steam Wishlist
+## TODO: Take into account "free games" being in a wishlist
 ## TODO: Take into account games in a "pre-order" state
 ## TODO: Make game list not look ugly on mobile screen sizes
+
 
 ## SETUP ##
 
@@ -28,8 +30,8 @@ limiter.init_app(app)
 #game testing area
 matches = db.prefix("game")
 for match in matches:
-  if db[match]["price_change_date"] == "":
-    db[match]["price_change_date"] = "Never"
+  if db[match]["username"] == "testing_account":
+    del db[match]
 
 
 #user testing area

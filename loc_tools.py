@@ -62,15 +62,31 @@ def scrape(url):
         return game_name.text.strip(), game_price, image_url, for_sale, has_demo, False
       if not "$" in game_price.text.strip():
         logging.info("$ not found -- demo div")
-        game_price = soup.find_all("div", class_="game_purchase_price price")
-        game_price = game_price[1]
+        free_to_play = free_to_play_check(soup)
+        if free_to_play:
+          logging.info("Free to play")
+          game_price = "$0"
+          for_sale = True
+          return game_name.text.strip(), game_price, image_url, for_sale, has_demo, bundle
+        else:
+          logging.info("Not free to play")
+          game_price = soup.find_all("div", class_="game_purchase_price price")
+          game_price = game_price[1]
       for_sale = True
-      return game_name.text.strip(), game_price.text.strip(
-      ), image_url, for_sale, has_demo, False
+      return game_name.text.strip(), game_price.text.strip(), image_url, for_sale, has_demo, bundle
   except:
     logging.info("Error scraping page")
     logging.info(traceback.format_exc())
     return "Error", "Error", "Error", "Error", "Error"
+
+def free_to_play_check(soup):
+  game_price = soup.find("div", class_="game_purchase_price price")
+  if game_price is not None:
+    if "Free" in game_price.text:
+      return True
+    else:
+      return False
+
 
 def pre_purchase_check(soup):
   pre_purchase = soup.find_all("div", class_="game_area_purchase_game")
@@ -427,25 +443,27 @@ def wishlist_process(steamID, username) -> None:
       for match in matches:
         if db[match]["game_name"] == name and db[match]["username"] == username:
           db[match]["wishlist"] = True
+          logging.info(f"Already loaded: {name}")
           continue
-      game_key = "game" + str(random.randint(100_000_000, 999_999_999))
-      db[game_key] = {
-        "game_name": name,
-        "price": price,
-        "url": url,
-        "username": username,
-        "bundle": False,
-        "image_url": image_url,
-        "old_price": "$0",
-        "percent_change": "0",
-        "for_sale": for_sale,
-        "target_percent": "-10",
-        "target_price": target_price,
-        "price_change_date": "Never",
-        "wishlist": True,
-        "has_demo": has_demo,
-        "date_added": string_time
-      }
+        else:      
+          game_key = "game" + str(random.randint(100_000_000, 999_999_999))
+          db[game_key] = {
+            "game_name": name,
+            "price": price,
+            "url": url,
+            "username": username,
+            "bundle": False,
+            "image_url": image_url,
+            "old_price": "$0",
+            "percent_change": "0",
+            "for_sale": for_sale,
+            "target_percent": "-10",
+            "target_price": target_price,
+            "price_change_date": "Never",
+            "wishlist": True,
+            "has_demo": has_demo,
+            "date_added": string_time
+          }
     logging.info("====WISHLIST=RUN=COMPLETE====")
   except:
     logging.info("Error: Unable to fetch wishlist data.")
