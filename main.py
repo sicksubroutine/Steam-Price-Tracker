@@ -7,11 +7,8 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
 ## TODO: Ability to import Steam Wishlist
-## TODO: Add price change date
-## TODO: Make the game list page look prettier
 ## TODO: Take into account games in a "pre-order" state
-## TODO: Unify all time to be the same format
-## TODO: Remove the need to have checkbox for bundles
+## TODO: Make game list not look ugly on mobile screen sizes
 
 ## SETUP ##
 
@@ -340,15 +337,9 @@ def price_add():
   try:
     form = request.form
     url = form.get("url")
-    bundle = form.get("bundle")
     username = session.get("username")
-    if bundle == None:
-      bundle = False
-      name, price, image_url, for_sale, has_demo = scrape(url, bundle)
-    else:
-      bundle = True
-      name, price, image_url, for_sale, has_demo = scrape(url, bundle)
-    logging.info(f"[Price Add Function] {name} - {price} - {for_sale}")
+    name, price, image_url, for_sale, has_demo, bundle = scrape(url)
+    logging.info(f"[Price Add Function] {name} - {price} - {for_sale} - {has_demo} - {bundle}")
     if for_sale:
       price_t = price
       price_t = float(price_t[1:])
