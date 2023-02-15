@@ -31,8 +31,9 @@ limiter.init_app(app)
 matches = db.prefix("game")
 for match in matches:
   if db[match]["username"] == "testing_account":
+    print(db[match]["game_name"])
     del db[match]
-
+    
 
 #user testing area
 matches = db.prefix("user")
@@ -428,12 +429,14 @@ def wishlist_add():
     form = request.form
     username = session.get("username")
     steamID = form.get("steamID")
-    wishlist_process(steamID, username)
+    
     try:
-      #TODO: Finish the Wishlist Add Function
-      pass
+      wishlist_process(steamID, username)
+      text = "Wishlist added!"
+      return redirect(f"/game_list?t={text}")
     except:
-      pass
+      text = "Something went wrong!"
+      return redirect(f"/game_list?t={text}")
 
 @app.route("/delete_game", methods=["GET"])
 def delete_game():

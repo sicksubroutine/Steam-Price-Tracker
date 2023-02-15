@@ -425,6 +425,8 @@ def wishlist_process(steamID, username) -> None:
     wishlist_url = []
     count = 0
     for game_id, game in wishlist.items():
+      if game_id == "1675200":
+        continue
       count +=1
       wishlist_url.append(game_id)
     logging.info(f"Processing {count} games from wishlist...")
@@ -444,25 +446,26 @@ def wishlist_process(steamID, username) -> None:
         if db[match]["game_name"] == name and db[match]["username"] == username:
           db[match]["wishlist"] = True
           logging.info(f"Already loaded: {name}")
-          continue
-        else:      
-          game_key = "game" + str(random.randint(100_000_000, 999_999_999))
-          db[game_key] = {
-            "game_name": name,
-            "price": price,
-            "url": url,
-            "username": username,
-            "bundle": False,
-            "image_url": image_url,
-            "old_price": "$0",
-            "percent_change": "0",
-            "for_sale": for_sale,
-            "target_percent": "-10",
-            "target_price": target_price,
-            "price_change_date": "Never",
-            "wishlist": True,
-            "has_demo": has_demo,
-            "date_added": string_time
+          break
+      else:
+        logging.info(f"Adding {name} to db")
+        game_key = "game" + str(random.randint(100_000_000, 999_999_999))
+        db[game_key] = {
+          "game_name": name,
+          "price": price,
+          "url": url,
+          "username": username,
+          "bundle": False,
+          "image_url": image_url,
+          "old_price": "$0",
+          "percent_change": "0",
+          "for_sale": for_sale,
+          "target_percent": "-10",
+          "target_price": target_price,
+          "price_change_date": "Never",
+          "wishlist": True,
+          "has_demo": has_demo,
+          "date_added": string_time
           }
     logging.info("====WISHLIST=RUN=COMPLETE====")
   except:
