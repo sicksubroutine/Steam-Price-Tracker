@@ -3,6 +3,7 @@
 *.csv
 *.log
 *.txt
+*.pickle
 
 # ignore all the replit stuff
 venv/
@@ -15,3 +16,4 @@ pyproject.toml
 replit.nix
 .config/
 .tutorial/
+.game-list

@@ -148,8 +148,9 @@ def not_for_sale(soup, pre):
   try:
     if pre:
       game_price = soup.find("div", class_="game_purchase_price price")
+      game_price = game_price.text.strip()
       for_sale = False
-      return game_price.text.strip(), for_sale
+      return game_price, for_sale
     else:
       not_for_sale = soup.find("div",
                                class_="game_area_comingsoon game_area_bubble")
@@ -422,13 +423,14 @@ def wishlist_process(steamID, username) -> None:
       wishlist.update(data)
       page += 1
     logging.info(f"Wishlist has {page} pages. Processing...")
-    wishlist_url = []
-    count = 0
+    wishlist_url = {}
     for game_id, game in wishlist.items():
       if game_id == "1675200":
         continue
-      count +=1
-      wishlist_url.append(game_id)
+      game_name = game["name"]
+      wishlist_url[game_id] = game_name
+    wishlist_url = dupe_check(wishlist_url, username)
+    count = len(wishlist_url)
     logging.info(f"Processing {count} games from wishlist...")
     string_time, PT_time = time_get()
     matches = db.prefix("game")
@@ -446,6 +448,7 @@ def wishlist_process(steamID, username) -> None:
         if db[match]["game_name"] == name and db[match]["username"] == username:
           db[match]["wishlist"] = True
           logging.info(f"Already loaded: {name}")
+          time.sleep(5)
           break
       else:
         logging.info(f"Adding {name} to db")
@@ -467,6 +470,18 @@ def wishlist_process(steamID, username) -> None:
           "has_demo": has_demo,
           "date_added": string_time
           }
+        time.sleep(1)
+        continue
     logging.info("====WISHLIST=RUN=COMPLETE====")
   except:
+    print(traceback.format_exc())
     logging.info("Error: Unable to fetch wishlist data.")
+
+def dupe_check(wishlist_list, username):
+    db_game_names = {db[match]["game_name"] for match in db.prefix("game") if db[match]["username"] == username}
+    for game_id, game_name in wishlist_list.copy().items():
+        if game_name in db_game_names:
+            logging.info(f"Duplicate: {game_name}")
+            del wishlist_list[game_id]
+    return wishlist_list
+        

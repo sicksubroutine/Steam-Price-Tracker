@@ -1,4 +1,4 @@
-import os, random, time, schedule, datetime, threading, traceback, logging
+import os, random, time, schedule, datetime, threading, traceback, logging, pickle
 from replit import db
 from flask import Flask, request, session, redirect, render_template
 from loc_tools import scrape, saltGet, saltPass, chores, confirm_mail, gen_unique_token, token_expiration, wishlist_process, time_get
@@ -10,6 +10,7 @@ from flask_limiter.util import get_remote_address
 ## TODO: Take into account "free games" being in a wishlist
 ## TODO: Take into account games in a "pre-order" state
 ## TODO: Make game list not look ugly on mobile screen sizes
+## TODO: Make bundle checking function actually work (ie, not just scanning for "Bundle")
 
 
 ## SETUP ##
@@ -25,15 +26,16 @@ limiter.init_app(app)
 
 ## Testing/Direct Database Modification ##
 
-
 """
+count = 0
 #game testing area
 matches = db.prefix("game")
+print(f"{len(matches)} games in DB")
 for match in matches:
-  if db[match]["username"] == "testing_account":
-    print(db[match]["game_name"])
+  if db[match]["wishlist"]:
     del db[match]
-    
+print(f"{count} games detected")
+
 
 #user testing area
 matches = db.prefix("user")
@@ -304,14 +306,47 @@ def pass_reset_funct():
 @app.route("/game_list", methods=['GET'])
 def game_list():
   if not session.get('logged_in'):
-    return redirect("/") 
+    return redirect("/")
+  now = datetime.datetime.now()
   username = session.get("username")
   text = request.args.get("t")
+  matches = db.prefix("game")
+  db_games_for_user = [db[match] for match in matches if db[match]["username"] == username]
+  games_user_has = len(db_games_for_user)
+  logging.info(f"{games_user_has} games for {username}")
+  if os.path.exists(f'.game-list/{username}_picked_list.pickle'):
+    with open(f'.game-list/{username}_picked_list.pickle', 'rb') as f:
+      game_list = pickle.load(f)
+      logging.info("Loaded game list from pickle")
+      game_list_len = len(game_list)
+    if game_list_len != games_user_has:
+      game_list = game_list_func(username)
+      with open(f'.game-list/{username}_picked_list.pickle', 'wb') as f:
+        pickle.dump(game_list, f)
+        logging.info("Saved game list to pickle")
+    #logging.info("# of games updated, loaded game list from function.")
+  else:
+    game_list = game_list_func(username)
+    with open(f'.game-list/{username}_picked_list.pickle', 'wb') as f:
+      pickle.dump(game_list, f)
+      logging.info("Saved game list to pickle")
+  admin = False
+  game_list_len = len(game_list)
+  logging.info(f"{game_list_len} games in list")
+  if session.get("admin"):
+    admin = True
+  after = datetime.datetime.now()
+  logging.info(f"{after - now} seconds elapsed")
+  return render_template("game_list.html",
+                         game_list=game_list,
+                    user=session.get("username"),
+                         text=text, admin=admin)  
+
+def game_list_func(username):
   game_list = []
   matches = db.prefix("game")
-  for match in matches:
-    if username == db[match]["username"]:
-      game_list.append({
+  matches_filter = [match for match in matches if db[match]["username"] == username]
+  game_list = [{
         "url": db[match]["url"],
         "old_price": db[match]["old_price"],
         "image_url": db[match]["image_url"],
@@ -323,14 +358,9 @@ def game_list():
         "has_demo": db[match]["has_demo"],
         "price_change_date": db[match]["price_change_date"],
         "for_sale": db[match]["for_sale"]
-      })
-  admin = False
-  if session.get("admin"):
-    admin = True
-  return render_template("game_list.html",
-                         game_list=game_list,
-                    user=session.get("username"),
-                         text=text, admin=admin)  
+    } for match in matches_filter]
+  return game_list
+
 
 @csrf.exempt
 @app.route("/price_add", methods=['POST'])
@@ -429,14 +459,21 @@ def wishlist_add():
     form = request.form
     username = session.get("username")
     steamID = form.get("steamID")
+    job = schedule.every(5).seconds.do(lambda: wishlist_add_func(steamID, username, job))
+    text = "Processing Wishlist"
+    return redirect(f"/game_list?t={text}")
+
+def wishlist_add_func(steamID, username, job):
+  try:
+    wishlist_process(steamID, username)
+    text = "Wishlist added!"
+    schedule.cancel_job(job)
+    return redirect(f"/game_list?t={text}")
+  except:
+    text = "Something went wrong!"
+    schedule.cancel_job(job)
+    return redirect(f"/game_list?t={text}")
     
-    try:
-      wishlist_process(steamID, username)
-      text = "Wishlist added!"
-      return redirect(f"/game_list?t={text}")
-    except:
-      text = "Something went wrong!"
-      return redirect(f"/game_list?t={text}")
 
 @app.route("/delete_game", methods=["GET"])
 def delete_game():
