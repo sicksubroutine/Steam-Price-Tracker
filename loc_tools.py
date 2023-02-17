@@ -15,16 +15,14 @@ def scrape(url):
     soup = BeautifulSoup(r.text, "html.parser")
     image = soup.find("link", rel="image_src").get("href")
     bundle_name = soup.find("h2", class_="pageheader")
+    bundle_find = soup.find("div", class_="game_area_purchase_game bundle ds_no_flags")
     pre_purchase = pre_purchase_check(soup)
-    if bundle_name == None:
-      logging.info("No bundle found in name.")
+    if bundle_find == None:
+      logging.info("No bundle found.")
       bundle = False
-    elif "Bundle" in bundle_name.text.strip():
-      logging.info("Bundle found in name.")
-      bundle = True
     else:
-      logging.info("No bundle found in name.")
-      bundle = False
+      logging.info("Bundle found.")
+      bundle = True
     image_url = image.split("?t=")[0]
     # bundle section
     if bundle:
@@ -113,19 +111,20 @@ def bundle_scrape(url):
 
 def discount_check(soup) -> bool:
   section = soup.find_all("div", class_="game_purchase_action")
-  for s in section:
+  for index,s in enumerate(section):
     not_discount = s.find(
       "div", class_="discount_block game_purchase_discount no_discount")
     if not_discount == None:
       pass
     elif not_discount != None:
-      logging.debug("found the 'no discount' div")
+      print("found the 'no discount' div")
       return False
-    logging.debug("Did not find 'no discount' div")
+    logging.info("Did not find 'no discount' div")
     discount = s.find("div", class_="discount_final_price")
-    if discount == None:
-      continue
-    if discount:
+    if index==0 and discount==None:
+      logging.info("first div is not a discount")
+      break
+    else:
       discount = True
       return discount
   else:

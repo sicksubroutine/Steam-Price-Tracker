@@ -6,11 +6,10 @@ from flask_seasurf import SeaSurf
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
-## TODO: Ability to import Steam Wishlist
 ## TODO: Take into account "free games" being in a wishlist
-## TODO: Take into account games in a "pre-order" state
 ## TODO: Make game list not look ugly on mobile screen sizes
 ## TODO: Make bundle checking function actually work (ie, not just scanning for "Bundle")
+## TODO: Fix caching function to actually work lol
 
 
 ## SETUP ##
@@ -310,29 +309,32 @@ def game_list():
   now = datetime.datetime.now()
   username = session.get("username")
   text = request.args.get("t")
-  matches = db.prefix("game")
-  db_games_for_user = [db[match] for match in matches if db[match]["username"] == username]
-  games_user_has = len(db_games_for_user)
-  logging.info(f"{games_user_has} games for {username}")
-  if os.path.exists(f'.game-list/{username}_picked_list.pickle'):
-    with open(f'.game-list/{username}_picked_list.pickle', 'rb') as f:
-      game_list = pickle.load(f)
-      logging.info("Loaded game list from pickle")
-      game_list_len = len(game_list)
-    if game_list_len != games_user_has:
-      game_list = game_list_func(username)
-      with open(f'.game-list/{username}_picked_list.pickle', 'wb') as f:
-        pickle.dump(game_list, f)
-        logging.info("Saved game list to pickle")
+  ## Need to fix caching to update if database is changed
+  #matches = db.prefix("game")
+  #db_games_for_user = [db[match]["game_name"] for match in matches if db[match]["username"] == username]
+  #print(db_games_for_user)
+  #games_user_has = len(db_games_for_user)
+  #logging.info(f"{games_user_has} games for {username}")
+  #if os.path.exists(f'.game-list/{username}_picked_list.pickle'):
+    #with open(f'.game-list/{username}_picked_list.pickle', 'rb') as f:
+  game_list = game_list_func(username)
+  #game_list = pickle.load(f)
+      #logging.info("Loaded game list from pickle")
+      #game_list_len = len(game_list)
+    #if game_list_len != games_user_has:
+      #game_list = game_list_func(username)
+      #with open(f'.game-list/{username}_picked_list.pickle', 'wb') as f:
+        #pickle.dump(game_list, f)
+        #logging.info("Saved game list to pickle")
     #logging.info("# of games updated, loaded game list from function.")
-  else:
-    game_list = game_list_func(username)
-    with open(f'.game-list/{username}_picked_list.pickle', 'wb') as f:
-      pickle.dump(game_list, f)
-      logging.info("Saved game list to pickle")
+  #else:
+    #game_list = game_list_func(username)
+    #with open(f'.game-list/{username}_picked_list.pickle', 'wb') as f:
+      #pickle.dump(game_list, f)
+      #logging.info("Saved game list to pickle")
   admin = False
-  game_list_len = len(game_list)
-  logging.info(f"{game_list_len} games in list")
+  #game_list_len = len(game_list)
+  #logging.info(f"{game_list_len} games in list")
   if session.get("admin"):
     admin = True
   after = datetime.datetime.now()
