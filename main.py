@@ -343,7 +343,6 @@ def game_list():
                          text=text, admin=admin)  
 
 def game_list_func(username):
-  game_list = []
   matches = db.prefix("game")
   matches_filter = [match for match in matches if db[match]["username"] == username]
   game_list = [{
