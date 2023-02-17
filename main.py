@@ -6,9 +6,7 @@ from flask_seasurf import SeaSurf
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
-## TODO: Take into account "free games" being in a wishlist
 ## TODO: Make game list not look ugly on mobile screen sizes
-## TODO: Make bundle checking function actually work (ie, not just scanning for "Bundle")
 ## TODO: Fix caching function to actually work lol
 
 
@@ -306,6 +304,7 @@ def pass_reset_funct():
 def game_list():
   if not session.get('logged_in'):
     return redirect("/")
+  cache_file = f'.game-list/{username}_picked_list.pickle'
   now = datetime.datetime.now()
   username = session.get("username")
   text = request.args.get("t")
@@ -315,21 +314,21 @@ def game_list():
   #print(db_games_for_user)
   #games_user_has = len(db_games_for_user)
   #logging.info(f"{games_user_has} games for {username}")
-  #if os.path.exists(f'.game-list/{username}_picked_list.pickle'):
-    #with open(f'.game-list/{username}_picked_list.pickle', 'rb') as f:
+  #if os.path.exists(cache_file):
+    #with open(cache_file, 'rb') as f:
   game_list = game_list_func(username)
   #game_list = pickle.load(f)
       #logging.info("Loaded game list from pickle")
       #game_list_len = len(game_list)
     #if game_list_len != games_user_has:
       #game_list = game_list_func(username)
-      #with open(f'.game-list/{username}_picked_list.pickle', 'wb') as f:
+      #with open(cached_file, 'wb') as f:
         #pickle.dump(game_list, f)
         #logging.info("Saved game list to pickle")
     #logging.info("# of games updated, loaded game list from function.")
   #else:
     #game_list = game_list_func(username)
-    #with open(f'.game-list/{username}_picked_list.pickle', 'wb') as f:
+    #with open(cached_file, 'wb') as f:
       #pickle.dump(game_list, f)
       #logging.info("Saved game list to pickle")
   admin = False
