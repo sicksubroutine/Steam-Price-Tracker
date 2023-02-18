@@ -219,6 +219,7 @@ def compare() -> None:
         db[match]["for_sale"] = True
         db[match]["price"] = new_price
         db[match]["price_change_date"] = string_time
+        db[match]["last_updated"] = string_time
         break
       elif not for_sale and db[match]["for_sale"] == False:
         pass
@@ -235,6 +236,7 @@ def compare() -> None:
             db[match]["price"] = f"${new_price}"
             db[match]["percent_change"] = f"{percent_change}"
             db[match]["price_change_date"] = string_time
+            db[match]["last_updated"] = string_time
             logging.info(
               f"{name} - {new_price} - decreased by {percent_change}%")
             price_change_mail(email, old_price, new_price, percent_change, url,
@@ -245,6 +247,7 @@ def compare() -> None:
             db[match]["price"] = f"${new_price}"
             db[match]["percent_change"] = f"{percent_change}"
             db[match]["price_change_date"] = string_time
+            db[match]["last_updated"] = string_time
             logging.info(f"{name} Price increased by {percent_change}%")
         else:
           logging.info(f"=={name} Price not changed==")

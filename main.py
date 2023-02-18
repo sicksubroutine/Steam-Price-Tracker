@@ -22,16 +22,13 @@ limiter = Limiter(key_func=get_remote_address)
 limiter.init_app(app)
 
 ## Testing/Direct Database Modification ##
-
 """
 count = 0
 #game testing area
 matches = db.prefix("game")
 print(f"{len(matches)} games in DB")
 for match in matches:
-  if db[match]["wishlist"]:
-    del db[match]
-print(f"{count} games detected")
+  print(db[match]["last_updated"])
 
 
 #user testing area
@@ -304,20 +301,20 @@ def pass_reset_funct():
 def game_list():
   if not session.get('logged_in'):
     return redirect("/")
-  cache_file = f'.game-list/{username}_picked_list.pickle'
-  now = datetime.datetime.now()
   username = session.get("username")
+  cache_file = f'.game-list/{username}_picked_list.pickle'
+  string_time, PT_time = time_get()
   text = request.args.get("t")
   ## Need to fix caching to update if database is changed
-  #matches = db.prefix("game")
-  #db_games_for_user = [db[match]["game_name"] for match in matches if db[match]["username"] == username]
+  matches = db.prefix("game")
+  db_games_for_user = [(db[match]["game_name"], db[match]["last_updated"]) for match in matches if db[match]["username"] == username]
   #print(db_games_for_user)
   #games_user_has = len(db_games_for_user)
   #logging.info(f"{games_user_has} games for {username}")
-  #if os.path.exists(cache_file):
-    #with open(cache_file, 'rb') as f:
-  game_list = game_list_func(username)
-  #game_list = pickle.load(f)
+  if os.path.exists(cache_file):
+    with open(cache_file, 'rb') as f:
+  #game_list = game_list_func(username)
+      game_list = pickle.load(f)
       #logging.info("Loaded game list from pickle")
       #game_list_len = len(game_list)
     #if game_list_len != games_user_has:
@@ -328,16 +325,16 @@ def game_list():
     #logging.info("# of games updated, loaded game list from function.")
   #else:
     #game_list = game_list_func(username)
-    #with open(cached_file, 'wb') as f:
-      #pickle.dump(game_list, f)
+  #with open(cache_file, 'wb') as f:
+  #  pickle.dump(game_list, f)
       #logging.info("Saved game list to pickle")
   admin = False
   #game_list_len = len(game_list)
   #logging.info(f"{game_list_len} games in list")
   if session.get("admin"):
     admin = True
-  after = datetime.datetime.now()
-  logging.info(f"{after - now} seconds elapsed")
+  #after = datetime.datetime.now()
+  #logging.info(f"{after - PT_time} seconds elapsed")
   return render_template("game_list.html",
                          game_list=game_list,
                     user=session.get("username"),
@@ -357,7 +354,8 @@ def game_list_func(username):
         "target_price": db[match]["target_price"],
         "has_demo": db[match]["has_demo"],
         "price_change_date": db[match]["price_change_date"],
-        "for_sale": db[match]["for_sale"]
+        "for_sale": db[match]["for_sale"],
+        "last_updated": db[match]["last_updated"]
     } for match in matches_filter]
   return game_list
 
@@ -402,7 +400,8 @@ def price_add():
       "price_change_date": "",
       "wishlist": False,
       "has_demo": has_demo,
-      "date_added": string_time
+      "date_added": string_time,
+      "last_updated": string_time
     }
     text = f"{name} Added!"
     return redirect(f"/game_list?t={text}")
@@ -418,6 +417,7 @@ def price_target():
     text = "You are not logged in!"
     return redirect(f"/login?t={text}")
   try:
+    string_time, PT_time = time_get()
     form = request.form
     username = session.get("username")
     game = form.get("game")
@@ -443,6 +443,7 @@ def price_target():
             text = f"{game}'s target price is now {target_price}!"
             db[match]["target_percent"] = f"{target_percent}"
             db[match]["target_price"] = f"{target_price}"
+            db[match]["last_updated"] = string_time
             return redirect(f"/game_list?t={text}")
     return f"{target_price} for {game}"
   except:
