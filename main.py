@@ -8,6 +8,7 @@ from flask_limiter.util import get_remote_address
 
 ## TODO: Make game list not look ugly on mobile screen sizes
 ## TODO: Fix caching function to actually work lol
+## TODO: Combine last_updated variable with price change variable and added variable maybe?
 
 
 ## SETUP ##
@@ -21,14 +22,16 @@ logging.basicConfig(filename='app.log', level=logging.INFO)
 limiter = Limiter(key_func=get_remote_address)
 limiter.init_app(app)
 
-## Testing/Direct Database Modification ##
 """
+## Testing/Direct Database Modification ##
+
+string_time, string_time_2 = time_get()
 count = 0
 #game testing area
 matches = db.prefix("game")
 print(f"{len(matches)} games in DB")
 for match in matches:
-  print(db[match]["last_updated"])
+
 
 
 #user testing area
@@ -306,21 +309,15 @@ def game_list():
   string_time, PT_time = time_get()
   text = request.args.get("t")
   ## Need to fix caching to update if database is changed
-  matches = db.prefix("game")
-  db_games_for_user = [(db[match]["game_name"], db[match]["last_updated"]) for match in matches if db[match]["username"] == username]
-  #print(db_games_for_user)
+  #strftime("%m-%d-%Y %I:%M:%S %p")
   #games_user_has = len(db_games_for_user)
   #logging.info(f"{games_user_has} games for {username}")
-  if os.path.exists(cache_file):
-    with open(cache_file, 'rb') as f:
-  #game_list = game_list_func(username)
-      game_list = pickle.load(f)
+  
+      #print(game_list)
       #logging.info("Loaded game list from pickle")
       #game_list_len = len(game_list)
     #if game_list_len != games_user_has:
       #game_list = game_list_func(username)
-      #with open(cached_file, 'wb') as f:
-        #pickle.dump(game_list, f)
         #logging.info("Saved game list to pickle")
     #logging.info("# of games updated, loaded game list from function.")
   #else:
@@ -328,6 +325,42 @@ def game_list():
   #with open(cache_file, 'wb') as f:
   #  pickle.dump(game_list, f)
       #logging.info("Saved game list to pickle")
+  now = datetime.datetime.now()
+  if os.path.exists(cache_file):
+    with open(cache_file, 'rb') as f:
+  #game_list = game_list_func(username)
+      game_list = pickle.load(f)
+  
+  matches = db.prefix("game")
+  """db_games_for_user = [{"game_name": db[match]["game_name"], "last_updated": db[match]["last_updated"]} for match in matches if db[match]["username"] == username]"""
+  db_games_for_user = {match: {
+        "game_name": db[match]["game_name"],
+        "last_updated": db[match]["last_updated"]
+    } for match in matches if db[match]["username"] == username}
+
+  updated_games = []
+  for game_id, game2 in db_games_for_user.items():
+    if game2["game_name"] not in updated_games:
+        for game in game_list.values():
+            time1 = datetime.datetime.strptime(game2.get("last_updated"), '%m-%d-%Y %I:%M:%S %p')
+            time2 = datetime.datetime.strptime(game["last_updated"], '%m-%d-%Y %I:%M:%S %p')
+            if time1 > time2:
+                updated_games.append(game2["game_name"])
+                break
+  after = datetime.datetime.now()
+
+  game_update = game_list_diff(updated_games)
+  print(game_update)
+
+  game_list = game_list_func(username)
+  
+  with open(cache_file, 'wb') as f:
+    pickle.dump(game_list, f)
+
+  game_list = game_list_repack(game_list)
+  
+  print(after-now)
+  
   admin = False
   #game_list_len = len(game_list)
   #logging.info(f"{game_list_len} games in list")
@@ -340,9 +373,26 @@ def game_list():
                     user=session.get("username"),
                          text=text, admin=admin)  
 
+
 def game_list_func(username):
   matches = db.prefix("game")
-  matches_filter = [match for match in matches if db[match]["username"] == username]
+  matches_filter = {match: {
+      "url": db[match]["url"],
+      "old_price": db[match]["old_price"],
+      "image_url": db[match]["image_url"],
+      "game_name": db[match]["game_name"],
+      "game_price": db[match]['price'],
+      "percent_change": db[match]["percent_change"],
+      "bundle": db[match]["bundle"],
+      "target_price": db[match]["target_price"],
+      "has_demo": db[match]["has_demo"],
+      "price_change_date": db[match]["price_change_date"],
+      "for_sale": db[match]["for_sale"],
+      "last_updated": db[match]["last_updated"]
+  } for match in matches if db[match]["username"] == username}
+  return matches_filter
+
+def game_list_repack(matches_filter):
   game_list = [{
         "url": db[match]["url"],
         "old_price": db[match]["old_price"],
@@ -358,6 +408,25 @@ def game_list_func(username):
         "last_updated": db[match]["last_updated"]
     } for match in matches_filter]
   return game_list
+
+def game_list_diff(updated_games):
+  matches = db.prefix("game")
+  matches_filter = [match for match in matches if db[match]["game_name"] in updated_games]
+  game_list_update = [{
+        "url": db[match]["url"],
+        "old_price": db[match]["old_price"],
+        "image_url": db[match]["image_url"],
+        "game_name": db[match]["game_name"],
+        "game_price": db[match]['price'],
+        "percent_change": db[match]["percent_change"],
+        "bundle": db[match]["bundle"],
+        "target_price": db[match]["target_price"],
+        "has_demo": db[match]["has_demo"],
+        "price_change_date": db[match]["price_change_date"],
+        "for_sale": db[match]["for_sale"],
+        "last_updated": db[match]["last_updated"]
+    } for match in matches_filter]
+  return game_list_update
 
 
 @csrf.exempt
