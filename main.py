@@ -1,4 +1,4 @@
-import os, random, time, schedule, datetime, threading, traceback, logging, pickle
+import os, random, time, schedule, datetime, threading, traceback, logging, pickle, hashlib
 from replit import db
 from flask import Flask, request, session, redirect, render_template
 from loc_tools import scrape, saltGet, saltPass, chores, confirm_mail, gen_unique_token, token_expiration, wishlist_process, time_get
@@ -31,7 +31,10 @@ count = 0
 matches = db.prefix("game")
 print(f"{len(matches)} games in DB")
 for match in matches:
-
+  if db[match]["wishlist"]:
+    count+=1
+    db[match]["last_updated"] = string_time
+print(f"{count} games in wishlist")
 
 
 #user testing area
@@ -304,40 +307,43 @@ def pass_reset_funct():
 def game_list():
   if not session.get('logged_in'):
     return redirect("/")
+  
   username = session.get("username")
   cache_file = f'.game-list/{username}_picked_list.pickle'
-  string_time, PT_time = time_get()
+  #string_time, PT_time = time_get()
   text = request.args.get("t")
   ## Need to fix caching to update if database is changed
-  #strftime("%m-%d-%Y %I:%M:%S %p")
-  #games_user_has = len(db_games_for_user)
-  #logging.info(f"{games_user_has} games for {username}")
-  
-      #print(game_list)
-      #logging.info("Loaded game list from pickle")
-      #game_list_len = len(game_list)
-    #if game_list_len != games_user_has:
-      #game_list = game_list_func(username)
-        #logging.info("Saved game list to pickle")
-    #logging.info("# of games updated, loaded game list from function.")
-  #else:
-    #game_list = game_list_func(username)
-  #with open(cache_file, 'wb') as f:
-  #  pickle.dump(game_list, f)
-      #logging.info("Saved game list to pickle")
   now = datetime.datetime.now()
-  if os.path.exists(cache_file):
-    with open(cache_file, 'rb') as f:
-  #game_list = game_list_func(username)
-      game_list = pickle.load(f)
-  
-  matches = db.prefix("game")
-  """db_games_for_user = [{"game_name": db[match]["game_name"], "last_updated": db[match]["last_updated"]} for match in matches if db[match]["username"] == username]"""
+  filtered_matches = {match: db[match] for match in db.prefix("game") if db[match]["username"] == username}
+  after = datetime.datetime.now()
+  print(after-now)
+  print(len(filtered_matches))
+  hash_matches = hashlib.sha256(str(filtered_matches).encode()).hexdigest()
+  print(f"Hash Matches: {hash_matches}")
+  """
   db_games_for_user = {match: {
         "game_name": db[match]["game_name"],
         "last_updated": db[match]["last_updated"]
-    } for match in matches if db[match]["username"] == username}
-
+    } for match in matches if db[match]["username"] == username}"""
+  
+  if os.path.exists(cache_file):
+    with open(cache_file, 'rb') as f:
+      game_list = pickle.load(f)
+      game_list_hash = hashlib.sha256(str(game_list).encode()).hexdigest()
+      print(f"This is the hash of preexisting pickle file: {game_list_hash}")
+      game_list = game_list_repack(game_list)
+      
+  else:
+    game_list = game_list_func(username)
+    print(type(game_list))
+    game_list_hash = hashlib.sha256(str(game_list).encode()).hexdigest()
+    print(game_list_hash)
+    with open(cache_file, 'wb') as f:
+      pickle.dump(game_list, f)
+    game_list = game_list_repack(game_list)
+    game_list_hash = hashlib.sha256(str(game_list).encode()).hexdigest()
+    print(game_list_hash)
+  """
   updated_games = []
   for game_id, game2 in db_games_for_user.items():
     if game2["game_name"] not in updated_games:
@@ -347,32 +353,27 @@ def game_list():
             if time1 > time2:
                 updated_games.append(game2["game_name"])
                 break
-  after = datetime.datetime.now()
+  
 
   game_update = game_list_diff(updated_games)
-  print(game_update)
-
-  game_list = game_list_func(username)
+  #print(game_update)
+  """
   
-  with open(cache_file, 'wb') as f:
-    pickle.dump(game_list, f)
-
-  game_list = game_list_repack(game_list)
-  
-  print(after-now)
   
   admin = False
-  #game_list_len = len(game_list)
-  #logging.info(f"{game_list_len} games in list")
   if session.get("admin"):
     admin = True
-  #after = datetime.datetime.now()
-  #logging.info(f"{after - PT_time} seconds elapsed")
+  
+  
   return render_template("game_list.html",
                          game_list=game_list,
                     user=session.get("username"),
                          text=text, admin=admin)  
 
+
+"""def game_list_func(username):
+  filtered_matches = {match: db[match] for match in db.prefix("game") if db[match]["username"] == username}
+  return filtered_matches"""
 
 def game_list_func(username):
   matches = db.prefix("game")
@@ -392,7 +393,7 @@ def game_list_func(username):
   } for match in matches if db[match]["username"] == username}
   return matches_filter
 
-def game_list_repack(matches_filter):
+def game_list_repack(passed_dict):
   game_list = [{
         "url": db[match]["url"],
         "old_price": db[match]["old_price"],
@@ -406,10 +407,10 @@ def game_list_repack(matches_filter):
         "price_change_date": db[match]["price_change_date"],
         "for_sale": db[match]["for_sale"],
         "last_updated": db[match]["last_updated"]
-    } for match in matches_filter]
+    } for match in passed_dict]
   return game_list
 
-def game_list_diff(updated_games):
+"""def game_list_diff(updated_games):
   matches = db.prefix("game")
   matches_filter = [match for match in matches if db[match]["game_name"] in updated_games]
   game_list_update = [{
@@ -426,7 +427,7 @@ def game_list_diff(updated_games):
         "for_sale": db[match]["for_sale"],
         "last_updated": db[match]["last_updated"]
     } for match in matches_filter]
-  return game_list_update
+  return game_list_update"""
 
 
 @csrf.exempt

@@ -376,8 +376,7 @@ def token_expiration(token) -> bool:
   for match in matches:
     if db[match]["token"] == token and db[match]["token_spent"] == False:
       expiry_time = db[match]["token_expiration_time"]
-      expiry_time = datetime.datetime.strptime(expiry_time,
-                                               "%m-%d-%Y %I:%M:%S %p")
+      expiry_time = datetime.datetime.strptime(expiry_time, "%m-%d-%Y %I:%M:%S %p")
       if now > expiry_time:
         return True
       elif now < expiry_time:
@@ -470,7 +469,8 @@ def wishlist_process(steamID, username) -> None:
           "price_change_date": "Never",
           "wishlist": True,
           "has_demo": has_demo,
-          "date_added": string_time
+          "date_added": string_time,
+          "last_updated": string_time
           }
         time.sleep(1)
         continue
