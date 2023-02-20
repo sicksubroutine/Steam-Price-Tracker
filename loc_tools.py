@@ -196,6 +196,7 @@ def compare() -> None:
     string_time, PT_time = time_get()
     count = 0
     matches = db.prefix("game")
+    logging.info(f"{len(matches)}")
     user_list = db.prefix("user")
     for match in matches:
       username = db[match]["username"]
@@ -224,10 +225,15 @@ def compare() -> None:
       elif not for_sale and db[match]["for_sale"] == False:
         pass
       else:
-        new_price = float(new_price[1:])
-        old_price = float(db[match]["price"][1:])
-        percent_change = round((new_price - old_price) / old_price * 100, 2)
-        target_percent = float(db[match]["target_percent"])
+        try:
+          new_price = float(new_price[1:])
+          logging.info(f"New Price: {new_price}")
+          old_price = float(db[match]["price"][1:])
+          logging.info(f"Old Price: {old_price}")
+          percent_change = round((new_price - old_price) / old_price * 100, 2)
+          target_percent = float(db[match]["target_percent"])
+        except ZeroDivisionError:
+          pass
       if for_sale:
         if new_price != old_price:
           count += 1
@@ -258,7 +264,7 @@ def compare() -> None:
   except:
     trace = traceback.format_exc()
     logging.error(trace)
-    logging.info("Error updating prices!")
+    print("Error updating prices!")
     pass
 
 
