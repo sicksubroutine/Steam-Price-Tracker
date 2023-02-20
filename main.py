@@ -7,8 +7,6 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
 ## TODO: Make game list not look ugly on mobile screen sizes
-## TODO: Fix caching function to actually work lol
-## TODO: Combine last_updated variable with price change variable and added variable maybe?
 
 
 ## SETUP ##
@@ -25,16 +23,13 @@ limiter.init_app(app)
 """
 ## Testing/Direct Database Modification ##
 
-string_time, string_time_2 = time_get()
-count = 0
 #game testing area
 matches = db.prefix("game")
 print(f"{len(matches)} games in DB")
 for match in matches:
   if db[match]["wishlist"]:
-    count+=1
-    db[match]["last_updated"] = string_time
-print(f"{count} games in wishlist")
+    del db[match]
+
 
 
 #user testing area
@@ -305,58 +300,40 @@ def pass_reset_funct():
 
 @app.route("/game_list", methods=['GET'])
 def game_list():
+  now = datetime.datetime.now()
   if not session.get('logged_in'):
     return redirect("/")
   username = session.get("username")
-  cache_file = f'.game-list/{username}_picked_list.pickle'
-  #string_time, PT_time = time_get()
+  user_hash = hashlib.sha256(username.encode()).hexdigest()
+  cache_file = f'.game-list/{user_hash}_picked_list.pickle'
+  string_time, PT_time = time_get()
   text = request.args.get("t")
-  ## Need to fix caching to update if database is changed
-  now = datetime.datetime.now()
-  filtered_matches = {match: db[match] for match in db.prefix("game") if db[match]["username"] == username}
-  after = datetime.datetime.now()
-  print(after-now)
-  hash_matches = hashlib.sha256(str(filtered_matches).encode()).hexdigest()
-  print(f"Hash Matches: {hash_matches}")
-  
-  if os.path.exists(cache_file):
+  hash_matches = hashlib.sha256(str({match: db[match] for match in db.prefix("game") if db[match]["username"] == username}).encode()).hexdigest()
+  logging.info(f"Database Hash: {hash_matches}")
+  hash_db = db["hash_check"]["hash"]
+  logging.info(f"Stored DB Hash: {hash_db}")
+  if os.path.exists(cache_file) and hash_db == hash_matches:
     with open(cache_file, 'rb') as f:
       game_list = pickle.load(f)
-      game_list = game_list_repack(game_list)
   else:
+    db["hash_check"] = {"hash": hash_matches}
     game_list = game_list_func(username)
     with open(cache_file, 'wb') as f:
       pickle.dump(game_list, f)
-    game_list = game_list_repack(game_list)
-  
-  
   admin = False
   if session.get("admin"):
     admin = True
+  after = datetime.datetime.now()
+  time_elapsed = (after - now).total_seconds()
+  logging.info(f"Time to load Game List: {time_elapsed} Seconds")
   return render_template("game_list.html",
                          game_list=game_list,
                     user=session.get("username"),
                          text=text, admin=admin)  
 
-def game_list_func(username):
-  matches = db.prefix("game")
-  matches_filter = {match: {
-      "url": db[match]["url"],
-      "old_price": db[match]["old_price"],
-      "image_url": db[match]["image_url"],
-      "game_name": db[match]["game_name"],
-      "game_price": db[match]['price'],
-      "percent_change": db[match]["percent_change"],
-      "bundle": db[match]["bundle"],
-      "target_price": db[match]["target_price"],
-      "has_demo": db[match]["has_demo"],
-      "price_change_date": db[match]["price_change_date"],
-      "for_sale": db[match]["for_sale"],
-      "last_updated": db[match]["last_updated"]
-  } for match in matches if db[match]["username"] == username}
-  return matches_filter
 
-def game_list_repack(passed_dict):
+def game_list_func(username):
+  dict = {match: db[match] for match in db.prefix("game") if db[match]["username"] == username}
   game_list = [{
         "url": db[match]["url"],
         "old_price": db[match]["old_price"],
@@ -368,9 +345,8 @@ def game_list_repack(passed_dict):
         "target_price": db[match]["target_price"],
         "has_demo": db[match]["has_demo"],
         "price_change_date": db[match]["price_change_date"],
-        "for_sale": db[match]["for_sale"],
-        "last_updated": db[match]["last_updated"]
-    } for match in passed_dict]
+        "for_sale": db[match]["for_sale"]
+    } for match in dict]
   return game_list
 
 
@@ -414,8 +390,7 @@ def price_add():
       "price_change_date": "",
       "wishlist": False,
       "has_demo": has_demo,
-      "date_added": string_time,
-      "last_updated": string_time
+      "date_added": string_time
     }
     text = f"{name} Added!"
     return redirect(f"/game_list?t={text}")
@@ -457,7 +432,6 @@ def price_target():
             text = f"{game}'s target price is now {target_price}!"
             db[match]["target_percent"] = f"{target_percent}"
             db[match]["target_price"] = f"{target_price}"
-            db[match]["last_updated"] = string_time
             return redirect(f"/game_list?t={text}")
     return f"{target_price} for {game}"
   except:

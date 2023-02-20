@@ -195,6 +195,7 @@ def compare() -> None:
   try:
     string_time, PT_time = time_get()
     count = 0
+    num = 0
     matches = db.prefix("game")
     logging.info(f"{len(matches)}")
     user_list = db.prefix("user")
@@ -205,6 +206,7 @@ def compare() -> None:
           email = db[user]["email"]
       url = db[match]["url"]
       logging.info(f"==Scraping {db[match]['game_name']}==")
+      num +=1
       name, new_price, image_url, for_sale, has_demo, bundle = scrape(url)
       logging.info(f"{name} {new_price} For Sale:{for_sale} Demo:{has_demo}")
       if db[match]["has_demo"] == False and has_demo == True:
@@ -220,7 +222,6 @@ def compare() -> None:
         db[match]["for_sale"] = True
         db[match]["price"] = new_price
         db[match]["price_change_date"] = string_time
-        db[match]["last_updated"] = string_time
         break
       elif not for_sale and db[match]["for_sale"] == False:
         pass
@@ -242,7 +243,6 @@ def compare() -> None:
             db[match]["price"] = f"${new_price}"
             db[match]["percent_change"] = f"{percent_change}"
             db[match]["price_change_date"] = string_time
-            db[match]["last_updated"] = string_time
             logging.info(
               f"{name} - {new_price} - decreased by {percent_change}%")
             price_change_mail(email, old_price, new_price, percent_change, url,
@@ -253,7 +253,6 @@ def compare() -> None:
             db[match]["price"] = f"${new_price}"
             db[match]["percent_change"] = f"{percent_change}"
             db[match]["price_change_date"] = string_time
-            db[match]["last_updated"] = string_time
             logging.info(f"{name} Price increased by {percent_change}%")
         else:
           logging.info(f"=={name} Price not changed==")
@@ -261,6 +260,7 @@ def compare() -> None:
         logging.info(f"=={name} still not for sale==")
         continue
     logging.info(f"**{count} Prices Updated**")
+    logging.info(f"**{num} Prices Scraped**")
   except:
     trace = traceback.format_exc()
     logging.error(trace)
@@ -295,7 +295,7 @@ def price_change_mail(recipent, old, new, per, url, name, image_url,
   msg['Subject'] = "Steam Tracker Price Change!"
   msg.attach(MIMEText(template, 'html'))
   s.send_message(msg)
-  logging.info(f"{recipent} has been emailed a price change email.")
+  logging.info("User has been emailed a price change email.")
   del msg
 
 
@@ -331,7 +331,7 @@ def confirm_mail(recipent, token, type) -> None:
   msg['Subject'] = "Confirmation Email"
   msg.attach(MIMEText(template, 'html'))
   s.send_message(msg)
-  logging.info(f"{recipent} has been emailed a confirmation email.")
+  logging.info("User has been emailed a confirmation email.")
   del msg
 
 
@@ -475,8 +475,7 @@ def wishlist_process(steamID, username) -> None:
           "price_change_date": "Never",
           "wishlist": True,
           "has_demo": has_demo,
-          "date_added": string_time,
-          "last_updated": string_time
+          "date_added": string_time
           }
         time.sleep(1)
         continue
