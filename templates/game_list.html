@@ -8,29 +8,40 @@
   <script>
     {% if text %}
     setTimeout(function() {
+  const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+window.history.replaceState({ path: newUrl }, '', newUrl);
   document.getElementById("error").style.display = "none";
-}, 5000);
+}, 7000);
     {% endif %}
     function filterGames() {
     var filterValue = document.getElementById("game-filter").value;
     var gameBoxes = document.getElementsByClassName("game-box");
+    var gameCount = 0; // initialize game count to 0
     for (var i = 0; i < gameBoxes.length; i++) {
         var game = gameBoxes[i];
         if (filterValue === "all") {
             game.style.display = "block";
+            gameCount++; // increment game count for each displayed game
         } else if (filterValue === "for-sale" && game.dataset.forSale === "true") {
             game.style.display = "block";
+            gameCount++;
         } else if (filterValue === "not-for-sale" && game.dataset.forSale === "false") {
             game.style.display = "block";
+            gameCount++;
         } else if (filterValue === "bundles" && game.dataset.bundle === "true")  {
             game.style.display = "block";
+            gameCount++;
         } else if (filterValue === "has-demo" && game.dataset.hasdemo === "true") {
             game.style.display = "block";
+            gameCount++;
         } else {
             game.style.display = "none";
         }
     }
+    // display game count in separate element on the page
+    document.getElementById("game-count").innerHTML = gameCount;
 }
+
   </script>
   <title>Steam Price Tracking</title>
 </head>
@@ -76,6 +87,7 @@
     <option value="for-sale">For Sale</option>
     <option value="bundles">Bundles</option>
   </select>
+  <span class="num_of_games">Displayed Games:</span> <span id="game-count">{{num_of_games}}</span>
 </center>
   <hr>
   <center>

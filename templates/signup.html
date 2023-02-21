@@ -5,7 +5,15 @@
   <meta name="viewport" content="width=device-width">
   <title>Sign Up Page</title>
   <link rel="stylesheet" href="/static/styles/logsign.css">
-  <script src="static/scripts/script.js"></script>
+  <script src="static/scripts/script.js">
+    {% if text %}
+    setTimeout(function() {
+  const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+window.history.replaceState({ path: newUrl }, '', newUrl);
+document.getElementById("error").style.display = "none";
+}, 7000);
+    {% endif %}
+  </script>
 </head>
 
 <body>

@@ -300,7 +300,7 @@ def pass_reset_funct():
 
 @app.route("/game_list", methods=['GET'])
 def game_list():
-  now = datetime.datetime.now()
+  
   if not session.get('logged_in'):
     return redirect("/")
   username = session.get("username")
@@ -312,28 +312,37 @@ def game_list():
   logging.info(f"Database Hash: {hash_matches}")
   hash_db = db["hash_check"]["hash"]
   logging.info(f"Stored DB Hash: {hash_db}")
+  now = datetime.datetime.now()
   if os.path.exists(cache_file) and hash_db == hash_matches:
     with open(cache_file, 'rb') as f:
       game_list = pickle.load(f)
   else:
-    db["hash_check"] = {"hash": hash_matches}
-    game_list = game_list_func(username)
-    with open(cache_file, 'wb') as f:
-      pickle.dump(game_list, f)
+    try:
+      game_list = game_list_func(username)
+      db["hash_check"] = {"hash": hash_matches}
+      with open(cache_file, 'wb') as f:
+        pickle.dump(game_list, f)
+    except:
+      time.sleep(5)
+      game_list = game_list_func(username)
+      db["hash_check"] = {"hash": hash_matches}
+      with open(cache_file, 'wb') as f:
+        pickle.dump(game_list, f)
+  after = datetime.datetime.now()
   admin = False
   if session.get("admin"):
     admin = True
-  after = datetime.datetime.now()
+  num_of_games = len(game_list)
+  
   time_elapsed = (after - now).total_seconds()
   logging.info(f"Time to load Game List: {time_elapsed} Seconds")
   return render_template("game_list.html",
                          game_list=game_list,
                     user=session.get("username"),
-                         text=text, admin=admin)  
-
+                         text=text, admin=admin,                             num_of_games=num_of_games)  
 
 def game_list_func(username):
-  dict = {match: db[match] for match in db.prefix("game") if db[match]["username"] == username}
+  #dict = {match: db[match] for match in }
   game_list = [{
         "url": db[match]["url"],
         "old_price": db[match]["old_price"],
@@ -346,7 +355,7 @@ def game_list_func(username):
         "has_demo": db[match]["has_demo"],
         "price_change_date": db[match]["price_change_date"],
         "for_sale": db[match]["for_sale"]
-    } for match in dict]
+    } for match in db.prefix("game") if db[match]["username"] == username]
   return game_list
 
 

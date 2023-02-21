@@ -5,6 +5,15 @@
   <meta name="viewport" content="width=device-width">
   <title>Password Recovery</title>
   <link rel="stylesheet" href="/static/styles/logsign.css">
+  <script>
+    {% if text %}
+    setTimeout(function() {
+  const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+window.history.replaceState({ path: newUrl }, '', newUrl);
+document.getElementById("error").style.display = "none";
+}, 7000);
+    {% endif %}
+  </script>
 </head>
 
 <body>

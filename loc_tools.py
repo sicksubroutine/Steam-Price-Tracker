@@ -35,7 +35,6 @@ def scrape(url):
       logging.info(f"=={game_name.text.strip()}==")
       game_price = soup.find_all("div", class_="game_purchase_price price")
       logging.debug(f"{game_price}")
-      # discount check
       discount = discount_check(soup)
       demo = soup.find("div", class_="game_area_purchase_game demo_above_purchase")
       if discount:
@@ -45,7 +44,7 @@ def scrape(url):
         logging.info("No Discount")
         #game price = <div class="game_purchase_price price">
         game_price = soup.find("div", class_="game_purchase_price price")
-        logging.debug(f"{game_price}")
+        #logging.debug(f"{game_price}")
       if demo == None:
         logging.info("==Has No Demo==")
         has_demo = False
@@ -208,7 +207,7 @@ def compare() -> None:
       logging.info(f"==Scraping {db[match]['game_name']}==")
       num +=1
       name, new_price, image_url, for_sale, has_demo, bundle = scrape(url)
-      logging.info(f"{name} {new_price} For Sale:{for_sale} Demo:{has_demo}")
+      #logging.info(f"{name} {new_price} For Sale:{for_sale} Demo:{has_demo}")
       if db[match]["has_demo"] == False and has_demo == True:
         db[match]["has_demo"] = True
         logging.info(f"{name} 'has_demo' value updated to true")
@@ -234,6 +233,7 @@ def compare() -> None:
           percent_change = round((new_price - old_price) / old_price * 100, 2)
           target_percent = float(db[match]["target_percent"])
         except ZeroDivisionError:
+          logging.info("Free Game - Zero Division Error")
           pass
       if for_sale:
         if new_price != old_price:
@@ -259,12 +259,12 @@ def compare() -> None:
       elif not for_sale:
         logging.info(f"=={name} still not for sale==")
         continue
-    logging.info(f"**{count} Prices Updated**")
-    logging.info(f"**{num} Prices Scraped**")
+    logging.info(f"**{count} of {num} Prices Updated**")
   except:
+    print("Error updating prices!")
     trace = traceback.format_exc()
     logging.error(trace)
-    print("Error updating prices!")
+    logging.info(f"**{count} of {num} Prices Updated**")
     pass
 
 
@@ -437,8 +437,7 @@ def wishlist_process(steamID, username) -> None:
       game_name = game["name"]
       wishlist_url[game_id] = game_name
     wishlist_url = dupe_check(wishlist_url, username)
-    count = len(wishlist_url)
-    logging.info(f"Processing {count} games from wishlist...")
+    logging.info(f"Processing {len(wishlist_url)} games from wishlist...")
     string_time, PT_time = time_get()
     matches = db.prefix("game")
     for game_id in wishlist_url:
@@ -477,7 +476,7 @@ def wishlist_process(steamID, username) -> None:
           "has_demo": has_demo,
           "date_added": string_time
           }
-        time.sleep(1)
+        time.sleep(1.5)
         continue
     logging.info("====WISHLIST=RUN=COMPLETE====")
   except:
@@ -485,10 +484,12 @@ def wishlist_process(steamID, username) -> None:
     logging.info("Error: Unable to fetch wishlist data.")
 
 def dupe_check(wishlist_list, username):
-    db_game_names = {db[match]["game_name"] for match in db.prefix("game") if db[match]["username"] == username}
-    for game_id, game_name in wishlist_list.copy().items():
-        if game_name in db_game_names:
-            logging.info(f"Duplicate: {game_name}")
-            del wishlist_list[game_id]
-    return wishlist_list
+  count = 0
+  db_game_names = {db[match]["game_name"] for match in db.prefix("game") if db[match]["username"] == username}
+  for game_id, game_name in wishlist_list.copy().items():
+      if game_name in db_game_names:
+          count += 1
+          del wishlist_list[game_id]
+  logging.info(f"Duplicate check: {count} games skipped.")
+  return wishlist_list
         
