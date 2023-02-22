@@ -18,62 +18,62 @@ def scrape(url):
     bundle_find = soup.find("div", class_="game_area_purchase_game bundle ds_no_flags")
     pre_purchase = pre_purchase_check(soup)
     if bundle_find == None:
-      logging.info("No bundle found.")
+      logging.debug("No bundle found.")
       bundle = False
     else:
-      logging.info("Bundle found.")
+      logging.debug("Bundle found.")
       bundle = True
     image_url = image.split("?t=")[0]
     # bundle section
     if bundle:
       bundle_name, bundle_price, for_sale = bundle_scrape(url)
-      logging.info(f"=={bundle_name}==")
+      logging.debug(f"=={bundle_name}==")
       return bundle_name, bundle_price, image_url, for_sale, False, True
     else:
       #game name = <div class="apphub_AppName">
       game_name = soup.find("div", class_="apphub_AppName")
-      logging.info(f"=={game_name.text.strip()}==")
+      logging.debug(f"=={game_name.text.strip()}==")
       game_price = soup.find_all("div", class_="game_purchase_price price")
       logging.debug(f"{game_price}")
       discount = discount_check(soup)
       demo = soup.find("div", class_="game_area_purchase_game demo_above_purchase")
       if discount:
-        logging.info("Discount found")
+        logging.debug("Discount found")
         game_price = discount_price(soup)
       elif not discount:
-        logging.info("No Discount")
+        logging.debug("No Discount")
         #game price = <div class="game_purchase_price price">
         game_price = soup.find("div", class_="game_purchase_price price")
-        #logging.debug(f"{game_price}")
+        logging.debug(f"{game_price}")
       if demo == None:
-        logging.info("==Has No Demo==")
+        logging.debug("==Has No Demo==")
         has_demo = False
       else:
         has_demo = True
-        logging.info("==Has Demo==")
+        logging.debug("==Has Demo==")
       # not for sale check
       if game_price == None or pre_purchase:
-        logging.info("Not for sale")
+        logging.debug("Not for sale")
         game_price, for_sale = not_for_sale(soup, pre_purchase)
         #logging.debug(f"[After not_for_sale function]{game_price} {for_sale}")
         return game_name.text.strip(), game_price, image_url, for_sale, has_demo, False
       if not "$" in game_price.text.strip():
-        logging.info("$ not found -- demo div")
+        logging.debug("$ not found -- demo div")
         free_to_play = free_to_play_check(soup)
         if free_to_play:
-          logging.info("Free to play")
+          logging.debug("Free to play")
           game_price = "$0"
           for_sale = True
           return game_name.text.strip(), game_price, image_url, for_sale, has_demo, bundle
         else:
-          logging.info("Not free to play")
+          logging.debug("Not free to play")
           game_price = soup.find_all("div", class_="game_purchase_price price")
           game_price = game_price[1]
       for_sale = True
       return game_name.text.strip(), game_price.text.strip(), image_url, for_sale, has_demo, bundle
   except:
     logging.info("Error scraping page")
-    logging.info(traceback.format_exc())
+    logging.debug(traceback.format_exc())
     return "Error", "Error", "Error", "Error", "Error"
 
 def free_to_play_check(soup):
@@ -118,10 +118,10 @@ def discount_check(soup) -> bool:
     elif not_discount != None:
       print("found the 'no discount' div")
       return False
-    logging.info("Did not find 'no discount' div")
+    logging.debug("Did not find 'no discount' div")
     discount = s.find("div", class_="discount_final_price")
     if index==0 and discount==None:
-      logging.info("first div is not a discount")
+      logging.debug("first div is not a discount")
       break
     else:
       discount = True
@@ -150,8 +150,7 @@ def not_for_sale(soup, pre):
       for_sale = False
       return game_price, for_sale
     else:
-      not_for_sale = soup.find("div",
-                               class_="game_area_comingsoon game_area_bubble")
+      not_for_sale = soup.find("div", class_="game_area_comingsoon game_area_bubble")
       when = not_for_sale.find_all("span")
       when = when[:-1]
       year = when[1].text
@@ -162,7 +161,6 @@ def not_for_sale(soup, pre):
     for_sale = False
   finally:
     return game_price, for_sale
-
 
 def purge_old_tokens() -> None:
   try:
@@ -179,16 +177,16 @@ def purge_old_tokens() -> None:
         if expiry_time > expire_grace:
           del db[match]
           count += 1
-          logging.info("Token Purged")
+          logging.debug("Token Purged")
       elif expiry_time > old_token:
         del db[match]
         count += 1
-        logging.info("Token Purged")
+        logging.debug("Token Purged")
     logging.info(f"{count} Tokens Purged")
   except:
     logging.info("Error purging old tokens")
-    pass
-
+    trace = traceback.format_exc()
+    logging.debug(trace)
 
 def compare() -> None:
   try:
@@ -196,7 +194,7 @@ def compare() -> None:
     count = 0
     num = 0
     matches = db.prefix("game")
-    logging.info(f"{len(matches)}")
+    logging.debug(f"{len(matches)}")
     user_list = db.prefix("user")
     for match in matches:
       username = db[match]["username"]
@@ -204,16 +202,16 @@ def compare() -> None:
         if db[user]["username"] == username:
           email = db[user]["email"]
       url = db[match]["url"]
-      logging.info(f"==Scraping {db[match]['game_name']}==")
+      logging.debug(f"==Scraping {db[match]['game_name']}==")
       num +=1
       name, new_price, image_url, for_sale, has_demo, bundle = scrape(url)
-      #logging.info(f"{name} {new_price} For Sale:{for_sale} Demo:{has_demo}")
+      logging.debug(f"{name} {new_price} For Sale:{for_sale} Demo:{has_demo}")
       if db[match]["has_demo"] == False and has_demo == True:
         db[match]["has_demo"] = True
-        logging.info(f"{name} 'has_demo' value updated to true")
+        logging.debug(f"{name} 'has_demo' value updated to true")
       elif db[match]["has_demo"] == True and has_demo == False:
         db[match]["has_demo"] = False
-        logging.info(f"{name} 'has_demo' value updated to false")
+        logging.debug(f"{name} 'has_demo' value updated to false")
       if for_sale and db[match]["for_sale"] == False:
         count += 1
         logging.info(f"{db[match]['game_name']} is now for sale!")
@@ -227,9 +225,9 @@ def compare() -> None:
       else:
         try:
           new_price = float(new_price[1:])
-          logging.info(f"New Price: {new_price}")
+          logging.debug(f"New Price: {new_price}")
           old_price = float(db[match]["price"][1:])
-          logging.info(f"Old Price: {old_price}")
+          logging.debug(f"Old Price: {old_price}")
           percent_change = round((new_price - old_price) / old_price * 100, 2)
           target_percent = float(db[match]["target_percent"])
         except ZeroDivisionError:
@@ -255,17 +253,16 @@ def compare() -> None:
             db[match]["price_change_date"] = string_time
             logging.info(f"{name} Price increased by {percent_change}%")
         else:
-          logging.info(f"=={name} Price not changed==")
+          logging.debug(f"=={name} Price not changed==")
       elif not for_sale:
-        logging.info(f"=={name} still not for sale==")
+        logging.debug(f"=={name} still not for sale==")
         continue
     logging.info(f"**{count} of {num} Prices Updated**")
   except:
-    print("Error updating prices!")
+    logging.info("Error updating prices!")
     trace = traceback.format_exc()
-    logging.error(trace)
+    logging.debug(trace)
     logging.info(f"**{count} of {num} Prices Updated**")
-    pass
 
 
 def price_change_mail(recipent, old, new, per, url, name, image_url,
@@ -295,7 +292,7 @@ def price_change_mail(recipent, old, new, per, url, name, image_url,
   msg['Subject'] = "Steam Tracker Price Change!"
   msg.attach(MIMEText(template, 'html'))
   s.send_message(msg)
-  logging.info("User has been emailed a price change email.")
+  logging.debug("User has been emailed a price change email.")
   del msg
 
 
@@ -316,7 +313,7 @@ def confirm_mail(recipent, token, type) -> None:
     template = template.replace("{url}", f"{URL}/")
     template = template.replace("{type}", type)
   else:
-    logging.info(f"{type} is not a valid option")
+    logging.debug(f"{type} is not a valid option")
     return
   server = os.environ.get("SMTP_SERVER")
   port = 587
@@ -331,7 +328,7 @@ def confirm_mail(recipent, token, type) -> None:
   msg['Subject'] = "Confirmation Email"
   msg.attach(MIMEText(template, 'html'))
   s.send_message(msg)
-  logging.info("User has been emailed a confirmation email.")
+  logging.debug("User has been emailed a confirmation email.")
   del msg
 
 
@@ -359,7 +356,7 @@ def gen_unique_token(username) -> str:
   token_expiration_time = current_time_date + datetime.timedelta(minutes=30)
   token_expiration_time = token_expiration_time.strftime(
     "%m-%d-%Y %I:%M:%S %p")
-  logging.info(token_expiration_time)
+  logging.debug(token_expiration_time)
   matches = db.prefix("user")
   for match in matches:
     if db[match]["username"] == username:
@@ -397,24 +394,34 @@ def time_get() -> str:
 
 
 def chores() -> None:
+  now_str, now = time_get()
   try:
-    now_str, now = time_get()
     logging.info(f"Chores starting at {now_str}")
     purge_old_tokens()
     compare()
     after_str, after = time_get()
     time_taken = after - now
     # convert to seconds
-    time_taken = round(time_taken.total_seconds(), 2)
+    time_taken_secs = round(time_taken.total_seconds(), 2)
     logging.info(f"Chores finished at {after_str}")
-    logging.info(f"Time taken: {time_taken} Seconds")
+    if time_taken_secs > 60:
+      time_taken_mins = round(time_taken_secs / 60, 2)
+      logging.info(f"Chores took {time_taken_mins} minutes")
+    else:
+      logging.info(f"Time taken: {time_taken_secs} Seconds")
     logging.info("====CHORES=RUN=COMPLETE====")
   except:
+    after_str, after = time_get()
+    if time_taken_secs > 60:
+      time_taken_mins = round(time_taken_secs / 60, 2)
+      logging.info(f"Chores took {time_taken_mins} minutes")
+    else:
+      logging.info(f"Time taken: {time_taken_secs} Seconds")
     logging.info("====CHORES=RUN=FAILED====")
     pass
 
 def wishlist_process(steamID, username) -> None:
-  logging.info(f"Processing wishlist for user: {username}")
+  logging.debug(f"Processing wishlist for user: {username}")
   page = 0
   wishlist = {}
   wishlist_url = f"https://store.steampowered.com/wishlist/profiles/{steamID}/wishlistdata"
@@ -422,14 +429,14 @@ def wishlist_process(steamID, username) -> None:
     while True:
       response = requests.get(wishlist_url, params={"p": page})
       if response.status_code == 500:
-        logging.info("Error: Account Privacy settings are probably blocking wishlist lookup.")
+        logging.debug("Error: Account Privacy settings are probably blocking wishlist lookup.")
         break
       data = response.json()
       if not data:
         break
       wishlist.update(data)
       page += 1
-    logging.info(f"Wishlist has {page} pages. Processing...")
+    logging.debug(f"Wishlist has {page} pages. Processing...")
     wishlist_url = {}
     for game_id, game in wishlist.items():
       if game_id == "1675200":
@@ -453,11 +460,11 @@ def wishlist_process(steamID, username) -> None:
       for match in matches:
         if db[match]["game_name"] == name and db[match]["username"] == username:
           db[match]["wishlist"] = True
-          logging.info(f"Already loaded: {name}")
+          logging.debug(f"Already loaded: {name}")
           time.sleep(5)
           break
       else:
-        logging.info(f"Adding {name} to db")
+        logging.debug(f"Adding {name} to db")
         game_key = "game" + str(random.randint(100_000_000, 999_999_999))
         db[game_key] = {
           "game_name": name,
@@ -481,7 +488,7 @@ def wishlist_process(steamID, username) -> None:
     logging.info("====WISHLIST=RUN=COMPLETE====")
   except:
     print(traceback.format_exc())
-    logging.info("Error: Unable to fetch wishlist data.")
+    logging.debug("Error: Unable to fetch wishlist data.")
 
 def dupe_check(wishlist_list, username):
   count = 0

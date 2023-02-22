@@ -7,6 +7,8 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
 ## TODO: Make game list not look ugly on mobile screen sizes
+## TODO: Instead of sending individual emails for each game, send a single email with all price changes
+
 
 
 ## SETUP ##
@@ -309,9 +311,9 @@ def game_list():
   string_time, PT_time = time_get()
   text = request.args.get("t")
   hash_matches = hashlib.sha256(str({match: db[match] for match in db.prefix("game") if db[match]["username"] == username}).encode()).hexdigest()
-  logging.info(f"Database Hash: {hash_matches}")
+  logging.debug(f"Database Hash: {hash_matches}")
   hash_db = db["hash_check"]["hash"]
-  logging.info(f"Stored DB Hash: {hash_db}")
+  logging.debug(f"Stored DB Hash: {hash_db}")
   now = datetime.datetime.now()
   if os.path.exists(cache_file) and hash_db == hash_matches:
     with open(cache_file, 'rb') as f:
@@ -335,7 +337,7 @@ def game_list():
   num_of_games = len(game_list)
   
   time_elapsed = (after - now).total_seconds()
-  logging.info(f"Time to load Game List: {time_elapsed} Seconds")
+  logging.debug(f"Time to load Game List: {time_elapsed} Seconds")
   return render_template("game_list.html",
                          game_list=game_list,
                     user=session.get("username"),
@@ -369,7 +371,7 @@ def price_add():
     url = form.get("url")
     username = session.get("username")
     name, price, image_url, for_sale, has_demo, bundle = scrape(url)
-    logging.info(f"[Price Add Function] {name} - {price} - {for_sale} - {has_demo} - {bundle}")
+    logging.debug(f"[Price Add Function] {name} - {price} - {for_sale} - {has_demo} - {bundle}")
     if for_sale:
       price_t = price
       price_t = float(price_t[1:])
@@ -404,7 +406,7 @@ def price_add():
     text = f"{name} Added!"
     return redirect(f"/game_list?t={text}")
   except:
-    logging.info(traceback.format_exc())
+    logging.debug(traceback.format_exc())
     text = "Something went wrong!"
     return redirect(f"/game_list?t={text}")
 
@@ -571,7 +573,7 @@ def background_task():
     time.sleep(5)
 
 if __name__ == "__main__":
-  schedule.every(6).hours.do(chores)
+  schedule.every(3).hours.do(chores)
   t = threading.Thread(target=background_task)
   t.start()
   app.run(host='0.0.0.0', port=81)
