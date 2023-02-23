@@ -29,10 +29,12 @@ limiter.init_app(app)
 matches = db.prefix("game")
 print(f"{len(matches)} games in DB")
 for match in matches:
-  if db[match]["wishlist"]:
-    del db[match]
-
-
+  if db[match]["game_name"] == "HYPER DEMON":
+    db[match]["for_sale"] = False
+  if db[match]["game_name"] == "Cruelty Squad":
+    db[match]["price"] = "$29.99"
+  if db[match]["game_name"] == "Cult of the Lamb":
+    db[match]["price"] = "$29.99"
 
 #user testing area
 matches = db.prefix("user")

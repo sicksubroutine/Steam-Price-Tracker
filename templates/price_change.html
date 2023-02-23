@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    .dark {
+      background-color: black;
+      color: white;
+    }
+    .red {
+      color: red;
+    }
+    a {
+      color: red;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+      color: blue;
+    }
+  </style>
+  <title>Steam Price Change Digest!</title>
+</head>
+<body>
+  <div class="dark">
+    <h1>Greetings {{ username }}!</h1>
+	<p>Here are the latest updates on your tracked games:</p>
+
+	{% for game_name, game_data in games.items() %}
+		<div>
+      <center>
+      <img src="{{ game_data.image_url }}" alt="{{ game_name }}"><br>
+			<h2><span class="red">{{ game_name }}</span></h2>
+			{% if game_data.type == "price_change" %}
+				The price of <span class="red">{{ game_name }}</span> has decreased by <span class="red">{{ game_data.percent_change }}%</span> from <span class="red">${{ game_data.old_price }}</span> to <span class="red">${{ game_data.new_price }}</span>!<br>
+			{% elif game_data.type == "on_sale" %}
+					<span class="red">{{ game_name }}</span> is now on sale for <span class="red">{{ game_data.new_price }}</span>!<br>
+			{% endif %}
+      <a href="{{ game_data.url }}">Buy on Steam!</a>
+        </center>
+		</div><br>
+	{% endfor %}
+    <!--
+    <center>
+      <img src="{image_url}">
+      <h2>{desc} has lowered in price!</h2>
+      Old Price: <span class="red">${old}</span><br>
+      New Price: <span class="red">${new}</span><br>
+      Change: <span class="red">{percent_change}%</span><br>
+      <a href='{link}'>Buy it here!</a>
+    </center>
+  </div>
+  -->
+</body>
+</html>

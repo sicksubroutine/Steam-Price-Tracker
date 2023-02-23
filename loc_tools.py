@@ -3,6 +3,7 @@ import requests, random, hashlib, string, os, datetime, time, logging, traceback
 from replit import db
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from jinja2 import Environment, PackageLoader
 import smtplib
 
 PATH = "static/html/"
@@ -193,6 +194,7 @@ def compare() -> None:
     string_time, PT_time = time_get()
     count = 0
     num = 0
+    email_digest = {}
     matches = db.prefix("game")
     logging.debug(f"{len(matches)}")
     user_list = db.prefix("user")
@@ -204,22 +206,43 @@ def compare() -> None:
       url = db[match]["url"]
       logging.debug(f"==Scraping {db[match]['game_name']}==")
       num +=1
-      name, new_price, image_url, for_sale, has_demo, bundle = scrape(url)
-      logging.debug(f"{name} {new_price} For Sale:{for_sale} Demo:{has_demo}")
+      game_name, new_price, image_url, for_sale, has_demo, bundle = scrape(url)
+      logging.debug(f"{game_name} {new_price} For Sale:{for_sale} Demo:{has_demo}")
       if db[match]["has_demo"] == False and has_demo == True:
         db[match]["has_demo"] = True
-        logging.debug(f"{name} 'has_demo' value updated to true")
+        logging.info(f"{game_name} 'has_demo' value updated to true")
       elif db[match]["has_demo"] == True and has_demo == False:
         db[match]["has_demo"] = False
-        logging.debug(f"{name} 'has_demo' value updated to false")
+        logging.info(f"{game_name} 'has_demo' value updated to false")
       if for_sale and db[match]["for_sale"] == False:
         count += 1
         logging.info(f"{db[match]['game_name']} is now for sale!")
-        price_change_mail(email, "0", new_price, "0", url, name, image_url, for_sale)
-        db[match]["for_sale"] = True
-        db[match]["price"] = new_price
-        db[match]["price_change_date"] = string_time
-        break
+        # Replacing multiple emails with single digest email
+        game_data = {
+            'old_price': "0",
+            'new_price': new_price,
+            'percent_change': "0",
+            'url': url,
+            'image_url': image_url,
+            'for_sale': for_sale,
+            'type': "on_sale"
+          }
+        if username in email_digest:
+          email_digest[username]['games'][game_name] = game_data
+        else:
+          email_digest[username] = {
+            'email': email,
+            'games': {
+                game_name: game_data
+            }
+        }
+        #price_change_mail(email, "0", new_price, "0", url, name, image_url, for_sale)
+        db[match].update({
+              "for_sale": True,
+              "price": new_price,
+              "price_change_date": string_time
+          })
+        continue
       elif not for_sale and db[match]["for_sale"] == False:
         pass
       else:
@@ -237,36 +260,93 @@ def compare() -> None:
         if new_price != old_price:
           count += 1
           if percent_change <= target_percent:
-            db[match]["old_price"] = f"${old_price}"
-            db[match]["price"] = f"${new_price}"
-            db[match]["percent_change"] = f"{percent_change}"
-            db[match]["price_change_date"] = string_time
-            logging.info(
-              f"{name} - {new_price} - decreased by {percent_change}%")
-            price_change_mail(email, old_price, new_price, percent_change, url,
-                              name, image_url, for_sale)
+            db[match].update({
+              "old_price": f"${old_price}",
+              "price": f"${new_price}",
+              "percent_change": f"{percent_change}",
+              "price_change_date": string_time
+          })
+            logging.info(f"{game_name} - {new_price} - decreased by {percent_change}%")
+            # Replacing multiple emails with single digest email
+            game_data = {
+              'old_price': old_price,
+              'new_price': new_price,
+              'percent_change': percent_change,
+              'url': url,
+              'image_url': image_url,
+              'for_sale': for_sale,
+              'type': "price_change"
+            }
+            if username in email_digest:
+              email_digest[username]['games'][game_name] = game_data
+            else:
+              email_digest[username] = {
+                'email': email,
+                'games': {
+                    game_name: game_data
+                }
+            }
+            #price_change_mail(email, old_price, new_price, percent_change, url, name, image_url, for_sale)
           else:
-            db[match]["old_price"] = f"${old_price}"
-            db[match]["old_price"] = f"${old_price}"
-            db[match]["price"] = f"${new_price}"
-            db[match]["percent_change"] = f"{percent_change}"
-            db[match]["price_change_date"] = string_time
-            logging.info(f"{name} Price increased by {percent_change}%")
+            db[match].update({
+              "old_price": f"${old_price}",
+              "price": f"${new_price}",
+              "percent_change": f"{percent_change}",
+              "price_change_date": string_time
+          })
+            logging.info(f"{game_name} Price increased by {percent_change}%")
         else:
-          logging.debug(f"=={name} Price not changed==")
+          logging.debug(f"=={game_name} Price not changed==")
       elif not for_sale:
-        logging.debug(f"=={name} still not for sale==")
+        logging.debug(f"=={game_name} still not for sale==")
         continue
+    # Send email digest
+    price_change_mail(email_digest)
     logging.info(f"**{count} of {num} Prices Updated**")
   except:
     logging.info("Error updating prices!")
     trace = traceback.format_exc()
-    logging.debug(trace)
+    logging.info(trace)
     logging.info(f"**{count} of {num} Prices Updated**")
 
+def price_change_mail(email_digest) -> None:
+  if not email_digest:
+    logging.info("No email digest to send!")
+    return
+  
+  server = os.environ.get("SMTP_SERVER")
+  port = 587
+  mail_username = os.environ['mailUsername']
+  mail_password = os.environ['mailPassword']
+  
+  env = Environment(loader=PackageLoader(__name__, 'templates'))
+  template = env.get_template('price_change.html')
 
-def price_change_mail(recipent, old, new, per, url, name, image_url,
-                      for_sale) -> None:
+  for username in email_digest:
+    recipient = email_digest[username]['email']
+    games = email_digest[username]['games']
+  
+    context = {
+        'username': username,
+        'games': games,
+    }
+  
+    html = template.render(context)
+
+    msg = MIMEMultipart()
+    msg['To'] = recipient
+    msg['From'] = os.environ['emailFrom']
+    msg['Subject'] = "Steam Price Change Digest"
+    msg.attach(MIMEText(html, 'html'))
+
+    with smtplib.SMTP(server, port) as server:
+      server.starttls()
+      server.login(mail_username, mail_password)
+      server.send_message(msg)
+    logging.info("User has been emailed a price change digest email.")
+
+
+"""def price_change_mail(recipent, old, new, per, url, name, image_url,for_sale) -> None:
   if for_sale:
     with open(f"{PATH}price_change.html", "r") as f:
       template = f.read()
@@ -293,7 +373,7 @@ def price_change_mail(recipent, old, new, per, url, name, image_url,
   msg.attach(MIMEText(template, 'html'))
   s.send_message(msg)
   logging.debug("User has been emailed a price change email.")
-  del msg
+  del msg"""
 
 
 def confirm_mail(recipent, token, type) -> None:
