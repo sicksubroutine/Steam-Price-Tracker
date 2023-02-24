@@ -4,6 +4,7 @@
 *.log
 *.txt
 *.pickle
+__pycache__/
 
 # ignore all the replit stuff
 venv/
