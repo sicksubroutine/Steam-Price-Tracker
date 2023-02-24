@@ -170,3 +170,64 @@ input:hover{
   grid-gap: 5px;
   
 }
+
+/* Media query for screens smaller than 768px */
+@media only screen and (max-width: 768px) {
+  /* Adjust the layout and styling for smaller screens */
+  .game-container {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .game-list-top {
+    width: 50%;
+  }
+
+  .short {
+    width: 50%;
+  }
+
+  .btn {
+    padding: 5px 16px;
+  }
+
+  .btn2 {
+    padding: 5px 16px;
+    margin: 2px auto;
+  }
+
+  .url {
+    font-size: 12px;
+  }
+
+  .target {
+    font-size: 12px;
+  }
+
+  .login_h3 {
+    font-size: 20px;
+  }
+
+  #game-list-alpha {
+    font-size: 1em;
+  }
+
+  #error {
+    font-size: 1.25em;
+  }
+
+  .red_text {
+    font-size: 16px;
+  }
+
+  .small_text {
+    font-size: 0.75em;
+  }
+
+  .game-link {
+    font-size: 16px;
+  }
+
+  .game-box {
+    font-size: 16px;
+  }
+}

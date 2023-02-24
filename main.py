@@ -6,11 +6,6 @@ from flask_seasurf import SeaSurf
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
-## TODO: Make game list not look ugly on mobile screen sizes
-## TODO: Instead of sending individual emails for each game, send a single email with all price changes
-
-
-
 ## SETUP ##
 
 app = Flask(__name__, static_url_path='/static')
@@ -21,7 +16,6 @@ PATH = "static/html/"
 logging.basicConfig(filename='app.log', level=logging.INFO)
 limiter = Limiter(key_func=get_remote_address)
 limiter.init_app(app)
-
 """
 ## Testing/Direct Database Modification ##
 
@@ -52,6 +46,7 @@ print(f"{count}")
 """
 
 ## Index ##
+
 
 @app.route("/", methods=["GET"])
 def index():
@@ -170,7 +165,7 @@ def log_in():
             "%m-%d-%Y %I:%M:%S %p")
           session["username"] = username
           session["logged_in"] = True
-          text = f"{username} Logged In!"
+          text = "User Logged In!"
           logging.info(f"{text}")
           return redirect(f"/game_list?t={text}")
     text = "Invalid login"
@@ -300,11 +295,12 @@ def pass_reset_funct():
     text = "Something went wrong!"
     return redirect(f"/login?t={text}")
 
+
 ## GAME LIST ##
+
 
 @app.route("/game_list", methods=['GET'])
 def game_list():
-  
   if not session.get('logged_in'):
     return redirect("/")
   username = session.get("username")
@@ -312,7 +308,11 @@ def game_list():
   cache_file = f'.game-list/{user_hash}_picked_list.pickle'
   string_time, PT_time = time_get()
   text = request.args.get("t")
-  hash_matches = hashlib.sha256(str({match: db[match] for match in db.prefix("game") if db[match]["username"] == username}).encode()).hexdigest()
+  hash_matches = hashlib.sha256(
+    str({
+      match: db[match]
+      for match in db.prefix("game") if db[match]["username"] == username
+    }).encode()).hexdigest()
   logging.debug(f"Database Hash: {hash_matches}")
   hash_db = db["hash_check"]["hash"]
   logging.debug(f"Stored DB Hash: {hash_db}")
@@ -337,29 +337,32 @@ def game_list():
   if session.get("admin"):
     admin = True
   num_of_games = len(game_list)
-  
+
   time_elapsed = (after - now).total_seconds()
   logging.debug(f"Time to load Game List: {time_elapsed} Seconds")
   return render_template("game_list.html",
                          game_list=game_list,
-                    user=session.get("username"),
-                         text=text, admin=admin,                             num_of_games=num_of_games)  
+                         user=session.get("username"),
+                         text=text,
+                         admin=admin,
+                         num_of_games=num_of_games)
+
 
 def game_list_func(username):
   #dict = {match: db[match] for match in }
   game_list = [{
-        "url": db[match]["url"],
-        "old_price": db[match]["old_price"],
-        "image_url": db[match]["image_url"],
-        "game_name": db[match]["game_name"],
-        "game_price": db[match]['price'],
-        "percent_change": db[match]["percent_change"],
-        "bundle": db[match]["bundle"],
-        "target_price": db[match]["target_price"],
-        "has_demo": db[match]["has_demo"],
-        "price_change_date": db[match]["price_change_date"],
-        "for_sale": db[match]["for_sale"]
-    } for match in db.prefix("game") if db[match]["username"] == username]
+    "url": db[match]["url"],
+    "old_price": db[match]["old_price"],
+    "image_url": db[match]["image_url"],
+    "game_name": db[match]["game_name"],
+    "game_price": db[match]['price'],
+    "percent_change": db[match]["percent_change"],
+    "bundle": db[match]["bundle"],
+    "target_price": db[match]["target_price"],
+    "has_demo": db[match]["has_demo"],
+    "price_change_date": db[match]["price_change_date"],
+    "for_sale": db[match]["for_sale"]
+  } for match in db.prefix("game") if db[match]["username"] == username]
   return game_list
 
 
@@ -373,7 +376,9 @@ def price_add():
     url = form.get("url")
     username = session.get("username")
     name, price, image_url, for_sale, has_demo, bundle = scrape(url)
-    logging.debug(f"[Price Add Function] {name} - {price} - {for_sale} - {has_demo} - {bundle}")
+    logging.debug(
+      f"[Price Add Function] {name} - {price} - {for_sale} - {has_demo} - {bundle}"
+    )
     if for_sale:
       price_t = price
       price_t = float(price_t[1:])
@@ -411,6 +416,7 @@ def price_add():
     logging.debug(traceback.format_exc())
     text = "Something went wrong!"
     return redirect(f"/game_list?t={text}")
+
 
 @csrf.exempt
 @app.route("/price_target", methods=['POST'])
@@ -451,6 +457,7 @@ def price_target():
     text = "Something went wrong!"
     return redirect(f"/game_list?t={text}")
 
+
 @csrf.exempt
 @app.route("/wishlist_add", methods=['POST'])
 def wishlist_add():
@@ -461,9 +468,11 @@ def wishlist_add():
     form = request.form
     username = session.get("username")
     steamID = form.get("steamID")
-    job = schedule.every(5).seconds.do(lambda: wishlist_add_func(steamID, username, job))
+    job = schedule.every(5).seconds.do(
+      lambda: wishlist_add_func(steamID, username, job))
     text = "Processing Wishlist"
     return redirect(f"/game_list?t={text}")
+
 
 def wishlist_add_func(steamID, username, job):
   try:
@@ -475,7 +484,7 @@ def wishlist_add_func(steamID, username, job):
     text = "Something went wrong!"
     schedule.cancel_job(job)
     return redirect(f"/game_list?t={text}")
-    
+
 
 @app.route("/delete_game", methods=["GET"])
 def delete_game():
@@ -524,7 +533,6 @@ def admin_panel():
                          user_list=user_list,
                          user=session.get("username"),
                          text=text)
-    
 
 
 @app.route("/delete", methods=['POST'])
@@ -546,6 +554,7 @@ def delete_user():
     text = "Something went wrong!"
     return redirect(f"/admin?t={text}")
 
+
 @app.route("/chores")
 def do_chores():
   if not session.get("logged_in") and session.get("admin"):
@@ -555,8 +564,10 @@ def do_chores():
   text = "Chores Done!"
   return redirect(f"/admin?t={text}")
 
+
 ## LOGOUT ##
-  
+
+
 @app.route("/logout")
 def logout():
   if not session.get('logged_in'):
@@ -567,12 +578,15 @@ def logout():
   session.pop("admin", None)
   return redirect("/")
 
+
 ## CHORES/MISC ##
+
 
 def background_task():
   while True:
     schedule.run_pending()
     time.sleep(5)
+
 
 if __name__ == "__main__":
   schedule.every(3).hours.do(chores)
