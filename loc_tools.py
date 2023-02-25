@@ -9,6 +9,17 @@ import smtplib
 PATH = "static/html/"
 logging.basicConfig(filename='app.log', level=logging.INFO)
 
+"""class GameScraper:
+  def __init__(self, url):
+    self.url = url
+    self.soup = self._get_soup()
+    self.game_name = self._get_game_name()
+    self.game_price = self._get_game_price()
+    self.is_bundle = self._is_bundle()
+
+  def get_soup(self):
+    r = requests.get(self.url)
+    return BeautifulSoup(r.text, "html.parser")"""
 
 def scrape(url):
   try:

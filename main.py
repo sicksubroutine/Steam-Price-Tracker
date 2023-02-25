@@ -6,6 +6,9 @@ from flask_seasurf import SeaSurf
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
+
+## TODO: Try to redo scraping code as OOP
+
 ## SETUP ##
 
 app = Flask(__name__, static_url_path='/static')
