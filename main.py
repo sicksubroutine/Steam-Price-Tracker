@@ -1,11 +1,10 @@
 import os, random, time, schedule, datetime, threading, traceback, logging, pickle, hashlib
 from replit import db
 from flask import Flask, request, session, redirect, render_template
-from loc_tools import scrape, saltGet, saltPass, chores, confirm_mail, gen_unique_token, token_expiration, wishlist_process, time_get
+from loc_tools import GameScraper, saltGet, saltPass, chores, confirm_mail, gen_unique_token, token_expiration, wishlist_process, time_get
 from flask_seasurf import SeaSurf
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-
 
 ## TODO: Try to redo scraping code as OOP
 
@@ -19,19 +18,15 @@ PATH = "static/html/"
 logging.basicConfig(filename='app.log', level=logging.INFO)
 limiter = Limiter(key_func=get_remote_address)
 limiter.init_app(app)
-"""
-## Testing/Direct Database Modification ##
 
+## Testing/Direct Database Modification ##
+"""
 #game testing area
 matches = db.prefix("game")
 print(f"{len(matches)} games in DB")
 for match in matches:
-  if db[match]["game_name"] == "HYPER DEMON":
+  if db[match]["game_name"] == "System Shock":
     db[match]["for_sale"] = False
-  if db[match]["game_name"] == "Cruelty Squad":
-    db[match]["price"] = "$29.99"
-  if db[match]["game_name"] == "Cult of the Lamb":
-    db[match]["price"] = "$29.99"
 
 #user testing area
 matches = db.prefix("user")
@@ -378,10 +373,15 @@ def price_add():
     form = request.form
     url = form.get("url")
     username = session.get("username")
-    name, price, image_url, for_sale, has_demo, bundle = scrape(url)
+    s = GameScraper(url)
+    name = s.name
+    price = s.price
+    image_url = s.image_url
+    for_sale = s.for_sale
+    has_demo = s.has_demo
+    bundle = s.bundle
     logging.debug(
-      f"[Price Add Function] {name} - {price} - {for_sale} - {has_demo} - {bundle}"
-    )
+      f"[Price Add Function] {name} - {price} - {for_sale} - {has_demo} - {bundle}")
     if for_sale:
       price_t = price
       price_t = float(price_t[1:])

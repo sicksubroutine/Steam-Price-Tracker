@@ -9,170 +9,152 @@ import smtplib
 PATH = "static/html/"
 logging.basicConfig(filename='app.log', level=logging.INFO)
 
-"""class GameScraper:
+
+class GameScraper:
+
   def __init__(self, url):
     self.url = url
-    self.soup = self._get_soup()
-    self.game_name = self._get_game_name()
-    self.game_price = self._get_game_price()
-    self.is_bundle = self._is_bundle()
+    self.soup = self.get_soup()
+    self.image_url = self.image_url()
+    self.bundle = self.bundle_check()
+    self.name = None
+    self.price = None
+    self.pre_purchase = self.pre_purchase_check()
+    self.has_demo = self.demo_check()
+    self.discount = self.discount_check()
+    self.for_sale = self.for_sale_check()
+    self.free_to_play = self.free_to_play_check()
+
+    if not self.bundle:
+      self.name = self.game_name()
+      logging.info(self.name)
+      if self.for_sale:
+        if self.free_to_play:
+          self.price = "$0"
+        elif self.discount:
+          self.price = self.discount_price()
+        else:
+          self.price = self.game_price()
+      else:
+        self.price = self.not_for_sale_info()
+    else:
+      self.name, self.price = self.bundle_info()
 
   def get_soup(self):
     r = requests.get(self.url)
-    return BeautifulSoup(r.text, "html.parser")"""
+    return BeautifulSoup(r.text, "html.parser")
 
-def scrape(url):
-  try:
-    r = requests.get(url)
-    soup = BeautifulSoup(r.text, "html.parser")
-    image = soup.find("link", rel="image_src").get("href")
-    bundle_name = soup.find("h2", class_="pageheader")
-    bundle_find = soup.find("div", class_="game_area_purchase_game bundle ds_no_flags")
-    pre_purchase = pre_purchase_check(soup)
-    if bundle_find == None:
-      logging.debug("No bundle found.")
-      bundle = False
-    else:
-      logging.debug("Bundle found.")
-      bundle = True
-    image_url = image.split("?t=")[0]
-    # bundle section
-    if bundle:
-      bundle_name, bundle_price, for_sale = bundle_scrape(url)
-      logging.debug(f"=={bundle_name}==")
-      return bundle_name, bundle_price, image_url, for_sale, False, True
-    else:
-      #game name = <div class="apphub_AppName">
-      game_name = soup.find("div", class_="apphub_AppName")
-      logging.debug(f"=={game_name.text.strip()}==")
-      game_price = soup.find_all("div", class_="game_purchase_price price")
-      logging.debug(f"{game_price}")
-      discount = discount_check(soup)
-      demo = soup.find("div", class_="game_area_purchase_game demo_above_purchase")
-      if discount:
-        logging.debug("Discount found")
-        game_price = discount_price(soup)
-      elif not discount:
-        logging.debug("No Discount")
-        #game price = <div class="game_purchase_price price">
-        game_price = soup.find("div", class_="game_purchase_price price")
-        logging.debug(f"{game_price}")
-      if demo == None:
-        logging.debug("==Has No Demo==")
-        has_demo = False
-      else:
-        has_demo = True
-        logging.debug("==Has Demo==")
-      # not for sale check
-      if game_price == None or pre_purchase:
-        logging.debug("Not for sale")
-        game_price, for_sale = not_for_sale(soup, pre_purchase)
-        #logging.debug(f"[After not_for_sale function]{game_price} {for_sale}")
-        return game_name.text.strip(), game_price, image_url, for_sale, has_demo, False
-      if not "$" in game_price.text.strip():
-        logging.debug("$ not found -- demo div")
-        free_to_play = free_to_play_check(soup)
-        if free_to_play:
-          logging.debug("Free to play")
-          game_price = "$0"
-          for_sale = True
-          return game_name.text.strip(), game_price, image_url, for_sale, has_demo, bundle
-        else:
-          logging.debug("Not free to play")
-          game_price = soup.find_all("div", class_="game_purchase_price price")
-          game_price = game_price[1]
-      for_sale = True
-      return game_name.text.strip(), game_price.text.strip(), image_url, for_sale, has_demo, bundle
-  except:
-    logging.info("Error scraping page")
-    logging.debug(traceback.format_exc())
-    return "Error", "Error", "Error", "Error", "Error"
+  def image_url(self):
+    image = self.soup.find("link", rel="image_src").get("href")
+    return image.split("?t=")[0]
 
-def free_to_play_check(soup):
-  game_price = soup.find("div", class_="game_purchase_price price")
-  if game_price is not None:
-    if "Free" in game_price.text:
+  def bundle_check(self):
+    bundle_find = self.soup.find(
+      "div", class_="game_area_purchase_game bundle ds_no_flags")
+    if bundle_find is not None:
+      logging.debug("Bundle found!")
       return True
     else:
+      logging.debug("Bundle not found!")
       return False
 
+  def bundle_info(self):
+    bundle_name = self.soup.find("h2", class_="pageheader")
+    bundle_price = self.soup.find("div", class_="discount_final_price")
+    return bundle_name.text.strip(), bundle_price.text.strip()
 
-def pre_purchase_check(soup):
-  pre_purchase = soup.find_all("div", class_="game_area_purchase_game")
-  for p in pre_purchase:
-    title = p.find("h1")
-    if title == None:
-      continue
-    if "Pre-Purchase" in title.text:
+  def game_name(self):
+    game_name = self.soup.find("div", class_="apphub_AppName")
+    return game_name.text.strip()
+
+  def game_price(self):
+    if self.has_demo:
+      game_price = self.soup.find_all("div", class_="game_purchase_price price")
+      for index, price in enumerate(game_price):
+        if price.get("data-price-final"):
+          game_price = game_price[index]
+      return game_price.text.strip()
+    else:
+      game_price = self.soup.find("div", class_="game_purchase_price price")
+      return game_price.text.strip()
+
+  def for_sale_check(self):
+    game_price = self.soup.find("div", class_="game_purchase_price price")
+    if self.pre_purchase:
+      return False
+    if game_price is None and self.discount:
       return True
-  else:
-    return False
-
-
-def bundle_scrape(url):
-  r = requests.get(url)
-  soup = BeautifulSoup(r.text, "html.parser")
-  #name = <h2 class="pageheader">
-  #price = <div class="discount_final_price">
-  bundle_name = soup.find("h2", class_="pageheader")
-  bundle_price = soup.find("div", class_="discount_final_price")
-  for_sale = True
-  return bundle_name.text.strip(), bundle_price.text.strip(), for_sale
-
-
-def discount_check(soup) -> bool:
-  section = soup.find_all("div", class_="game_purchase_action")
-  for index,s in enumerate(section):
-    not_discount = s.find(
-      "div", class_="discount_block game_purchase_discount no_discount")
-    if not_discount == None:
-      pass
-    elif not_discount != None:
-      print("found the 'no discount' div")
+    elif game_price is None:
+      logging.debug("Not for sale!")
       return False
-    logging.debug("Did not find 'no discount' div")
-    discount = s.find("div", class_="discount_final_price")
-    if index==0 and discount==None:
-      logging.debug("first div is not a discount")
-      break
     else:
-      discount = True
-      return discount
-  else:
-    discount = False
-    return discount
+      return True
 
-
-def discount_price(soup) -> str:
-  section = soup.find_all("div", class_="game_purchase_action")
-  for s in section:
-    discount = s.find("div", class_="discount_final_price")
-    if discount == None:
-      continue
-    if discount:
-      game_price = discount
-      return game_price
-
-
-def not_for_sale(soup, pre):
-  try:
-    if pre:
-      game_price = soup.find("div", class_="game_purchase_price price")
-      game_price = game_price.text.strip()
-      for_sale = False
-      return game_price, for_sale
-    else:
-      not_for_sale = soup.find("div", class_="game_area_comingsoon game_area_bubble")
+  def not_for_sale_info(self):
+    try:
+      not_for_sale = self.soup.find(
+        "div", class_="game_area_comingsoon game_area_bubble")
       when = not_for_sale.find_all("span")
       when = when[:-1]
       year = when[1].text
-      for_sale = False
       game_price = f"Not for Sale until {year}"
-  except:
-    game_price = "Not for sale"
-    for_sale = False
-  finally:
-    return game_price, for_sale
+      return game_price
+    except:
+      return "Not for Sale"
+
+  def free_to_play_check(self):
+    game_price = self.soup.find("div", class_="game_purchase_price price")
+    if game_price is not None:
+      if "Free" in game_price.text:
+        return True
+    return False
+
+  def pre_purchase_check(self):
+    pre_purchase = self.soup.find_all("div", class_="game_area_purchase_game")
+    for p in pre_purchase:
+      title = p.find("h1")
+      if title == None:
+        continue
+      if "Pre-Purchase" in title.text:
+        return True
+    else:
+      return False
+
+  def demo_check(self):
+    demo = self.soup.find("div", class_="game_area_purchase_game demo_above_purchase")
+    if demo == None:
+      return False
+    else:
+      return True
+
+  def discount_check(self):
+    section = self.soup.find_all("div", class_="game_purchase_action")
+    for index, s in enumerate(section):
+      not_discount = s.find(
+        "div", class_="discount_block game_purchase_discount no_discount")
+      if not_discount == None:
+        pass
+      elif not_discount != None:
+        logging.debug("found the 'no discount' div")
+        return False
+      discount = s.find("div", class_="discount_final_price")
+      if index == 0 and discount == None:
+        break
+      else:
+        return True
+
+    return False
+
+  def discount_price(self):
+    section = self.soup.find_all("div", class_="game_purchase_action")
+    for s in section:
+      discount = s.find("div", class_="discount_final_price")
+      if discount == None:
+        continue
+      if discount:
+        game_price = discount
+        return game_price.text.strip()
+
 
 def purge_old_tokens() -> None:
   try:
@@ -200,6 +182,7 @@ def purge_old_tokens() -> None:
     trace = traceback.format_exc()
     logging.debug(trace)
 
+
 def compare() -> None:
   try:
     string_time, PT_time = time_get()
@@ -216,9 +199,16 @@ def compare() -> None:
           email = db[user]["email"]
       url = db[match]["url"]
       logging.debug(f"==Scraping {db[match]['game_name']}==")
-      num +=1
-      game_name, new_price, image_url, for_sale, has_demo, bundle = scrape(url)
-      logging.debug(f"{game_name} {new_price} For Sale:{for_sale} Demo:{has_demo}")
+      num += 1
+      s = GameScraper(url)
+      game_name = s.name
+      new_price = s.price
+      image_url = s.image_url
+      for_sale = s.for_sale
+      has_demo = s.has_demo
+      bundle = s.bundle
+      logging.debug(
+        f"{game_name} {new_price} For Sale:{for_sale} Demo:{has_demo}")
       if db[match]["has_demo"] == False and has_demo == True:
         db[match]["has_demo"] = True
         logging.info(f"{game_name} 'has_demo' value updated to true")
@@ -230,29 +220,28 @@ def compare() -> None:
         logging.info(f"{db[match]['game_name']} is now for sale!")
         # Replacing multiple emails with single digest email
         game_data = {
-            'old_price': "0",
-            'new_price': new_price,
-            'percent_change': "0",
-            'url': url,
-            'image_url': image_url,
-            'for_sale': for_sale,
-            'type': "on_sale"
-          }
+          'old_price': "0",
+          'new_price': new_price,
+          'percent_change': "0",
+          'url': url,
+          'image_url': image_url,
+          'for_sale': for_sale,
+          'type': "on_sale"
+        }
         if username in email_digest:
           email_digest[username]['games'][game_name] = game_data
         else:
           email_digest[username] = {
             'email': email,
             'games': {
-                game_name: game_data
+              game_name: game_data
             }
-        }
-        #price_change_mail(email, "0", new_price, "0", url, name, image_url, for_sale)
+          }
         db[match].update({
-              "for_sale": True,
-              "price": new_price,
-              "price_change_date": string_time
-          })
+          "for_sale": True,
+          "price": new_price,
+          "price_change_date": string_time
+        })
         continue
       elif not for_sale and db[match]["for_sale"] == False:
         pass
@@ -276,8 +265,9 @@ def compare() -> None:
               "price": f"${new_price}",
               "percent_change": f"{percent_change}",
               "price_change_date": string_time
-          })
-            logging.info(f"{game_name} - {new_price} - decreased by {percent_change}%")
+            })
+            logging.info(
+              f"{game_name} - {new_price} - decreased by {percent_change}%")
             # Replacing multiple emails with single digest email
             game_data = {
               'old_price': old_price,
@@ -294,17 +284,16 @@ def compare() -> None:
               email_digest[username] = {
                 'email': email,
                 'games': {
-                    game_name: game_data
+                  game_name: game_data
                 }
-            }
-            #price_change_mail(email, old_price, new_price, percent_change, url, name, image_url, for_sale)
+              }
           else:
             db[match].update({
               "old_price": f"${old_price}",
               "price": f"${new_price}",
               "percent_change": f"{percent_change}",
               "price_change_date": string_time
-          })
+            })
             logging.info(f"{game_name} Price increased by {percent_change}%")
         else:
           logging.debug(f"=={game_name} Price not changed==")
@@ -315,33 +304,35 @@ def compare() -> None:
     price_change_mail(email_digest)
     logging.info(f"**{count} of {num} Prices Updated**")
   except:
+    price_change_mail(email_digest)
     logging.info("Error updating prices!")
     trace = traceback.format_exc()
     logging.info(trace)
     logging.info(f"**{count} of {num} Prices Updated**")
 
+
 def price_change_mail(email_digest) -> None:
   if not email_digest:
     logging.info("No email digest to send!")
     return
-  
+
   server = os.environ.get("SMTP_SERVER")
   port = 587
   mail_username = os.environ['mailUsername']
   mail_password = os.environ['mailPassword']
-  
+
   env = Environment(loader=PackageLoader(__name__, 'templates'))
   template = env.get_template('price_change.html')
 
   for username in email_digest:
     recipient = email_digest[username]['email']
     games = email_digest[username]['games']
-  
+
     context = {
-        'username': username,
-        'games': games,
+      'username': username,
+      'games': games,
     }
-  
+
     html = template.render(context)
 
     msg = MIMEMultipart()
@@ -355,36 +346,6 @@ def price_change_mail(email_digest) -> None:
       server.login(mail_username, mail_password)
       server.send_message(msg)
     logging.info("User has been emailed a price change digest email.")
-
-
-"""def price_change_mail(recipent, old, new, per, url, name, image_url,for_sale) -> None:
-  if for_sale:
-    with open(f"{PATH}price_change.html", "r") as f:
-      template = f.read()
-  elif not for_sale:
-    with open(f"{PATH}for_sale.html", "r") as f:
-      template = f.read()
-  template = template.replace("{image_url}", image_url)
-  template = template.replace("{percent_change}", f"{per}")
-  template = template.replace("{desc}", name)
-  template = template.replace("{link}", url)
-  template = template.replace("{old}", f"{old}")
-  template = template.replace("{new}", f"{new}")
-  server = os.environ.get("SMTP_SERVER")
-  port = 587
-  s = smtplib.SMTP(host=server, port=port)
-  s.starttls()
-  username = os.environ['mailUsername']
-  password = os.environ['mailPassword']
-  s.login(username, password)
-  msg = MIMEMultipart()
-  msg['To'] = recipent
-  msg['From'] = os.environ['emailFrom']
-  msg['Subject'] = "Steam Tracker Price Change!"
-  msg.attach(MIMEText(template, 'html'))
-  s.send_message(msg)
-  logging.debug("User has been emailed a price change email.")
-  del msg"""
 
 
 def confirm_mail(recipent, token, type) -> None:
@@ -470,7 +431,8 @@ def token_expiration(token) -> bool:
   for match in matches:
     if db[match]["token"] == token and db[match]["token_spent"] == False:
       expiry_time = db[match]["token_expiration_time"]
-      expiry_time = datetime.datetime.strptime(expiry_time, "%m-%d-%Y %I:%M:%S %p")
+      expiry_time = datetime.datetime.strptime(expiry_time,
+                                               "%m-%d-%Y %I:%M:%S %p")
       if now > expiry_time:
         return True
       elif now < expiry_time:
@@ -511,6 +473,7 @@ def chores() -> None:
     logging.info("====CHORES=RUN=FAILED====")
     pass
 
+
 def wishlist_process(steamID, username) -> None:
   logging.debug(f"Processing wishlist for user: {username}")
   page = 0
@@ -520,7 +483,9 @@ def wishlist_process(steamID, username) -> None:
     while True:
       response = requests.get(wishlist_url, params={"p": page})
       if response.status_code == 500:
-        logging.debug("Error: Account Privacy settings are probably blocking wishlist lookup.")
+        logging.debug(
+          "Error: Account Privacy settings are probably blocking wishlist lookup."
+        )
         break
       data = response.json()
       if not data:
@@ -540,7 +505,13 @@ def wishlist_process(steamID, username) -> None:
     matches = db.prefix("game")
     for game_id in wishlist_url:
       url = f"https://store.steampowered.com/app/{game_id}"
-      name, price, image_url, for_sale, has_demo, bundle = scrape(url)
+      s = GameScraper(url)
+      game_name = s.name
+      price = s.price
+      image_url = s.image_url
+      for_sale = s.for_sale
+      has_demo = s.has_demo
+      bundle = s.bundle
       if for_sale:
         price_t = price
         price_t = float(price_t[1:])
@@ -562,7 +533,7 @@ def wishlist_process(steamID, username) -> None:
           "price": price,
           "url": url,
           "username": username,
-          "bundle": False,
+          "bundle": bundle,
           "image_url": image_url,
           "old_price": "$0",
           "percent_change": "0",
@@ -573,21 +544,24 @@ def wishlist_process(steamID, username) -> None:
           "wishlist": True,
           "has_demo": has_demo,
           "date_added": string_time
-          }
+        }
         time.sleep(1.5)
         continue
     logging.info("====WISHLIST=RUN=COMPLETE====")
   except:
-    print(traceback.format_exc())
+    logging.info(traceback.format_exc())
     logging.debug("Error: Unable to fetch wishlist data.")
+
 
 def dupe_check(wishlist_list, username):
   count = 0
-  db_game_names = {db[match]["game_name"] for match in db.prefix("game") if db[match]["username"] == username}
+  db_game_names = {
+    db[match]["game_name"]
+    for match in db.prefix("game") if db[match]["username"] == username
+  }
   for game_id, game_name in wishlist_list.copy().items():
-      if game_name in db_game_names:
-          count += 1
-          del wishlist_list[game_id]
+    if game_name in db_game_names:
+      count += 1
+      del wishlist_list[game_id]
   logging.info(f"Duplicate check: {count} games skipped.")
   return wishlist_list
-        
