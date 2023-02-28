@@ -40,15 +40,15 @@ class GameScraper:
     else:
       self.name, self.price = self.bundle_info()
 
-  def get_soup(self):
+  def get_soup(self) -> str:
     r = requests.get(self.url)
     return BeautifulSoup(r.text, "html.parser")
 
-  def image_url(self):
+  def image_url(self) -> str:
     image = self.soup.find("link", rel="image_src").get("href")
     return image.split("?t=")[0]
 
-  def bundle_check(self):
+  def bundle_check(self) -> str:
     bundle_find = self.soup.find(
       "div", class_="game_area_purchase_game bundle ds_no_flags")
     if bundle_find is not None:
@@ -58,16 +58,16 @@ class GameScraper:
       logging.debug("Bundle not found!")
       return False
 
-  def bundle_info(self):
+  def bundle_info(self) -> str:
     bundle_name = self.soup.find("h2", class_="pageheader")
     bundle_price = self.soup.find("div", class_="discount_final_price")
     return bundle_name.text.strip(), bundle_price.text.strip()
 
-  def game_name(self):
+  def game_name(self) -> str:
     game_name = self.soup.find("div", class_="apphub_AppName")
     return game_name.text.strip()
 
-  def game_price(self):
+  def game_price(self) -> str:
     if self.has_demo:
       game_price = self.soup.find_all("div", class_="game_purchase_price price")
       for index, price in enumerate(game_price):
@@ -78,7 +78,7 @@ class GameScraper:
       game_price = self.soup.find("div", class_="game_purchase_price price")
       return game_price.text.strip()
 
-  def for_sale_check(self):
+  def for_sale_check(self) -> bool:
     game_price = self.soup.find("div", class_="game_purchase_price price")
     if self.pre_purchase:
       return False
@@ -90,7 +90,7 @@ class GameScraper:
     else:
       return True
 
-  def not_for_sale_info(self):
+  def not_for_sale_info(self) -> str:
     try:
       not_for_sale = self.soup.find(
         "div", class_="game_area_comingsoon game_area_bubble")
@@ -102,14 +102,14 @@ class GameScraper:
     except:
       return "Not for Sale"
 
-  def free_to_play_check(self):
+  def free_to_play_check(self) -> bool:
     game_price = self.soup.find("div", class_="game_purchase_price price")
     if game_price is not None:
       if "Free" in game_price.text:
         return True
     return False
 
-  def pre_purchase_check(self):
+  def pre_purchase_check(self) -> bool:
     pre_purchase = self.soup.find_all("div", class_="game_area_purchase_game")
     for p in pre_purchase:
       title = p.find("h1")
@@ -120,14 +120,14 @@ class GameScraper:
     else:
       return False
 
-  def demo_check(self):
+  def demo_check(self) -> bool:
     demo = self.soup.find("div", class_="game_area_purchase_game demo_above_purchase")
     if demo == None:
       return False
     else:
       return True
 
-  def discount_check(self):
+  def discount_check(self) -> bool:
     section = self.soup.find_all("div", class_="game_purchase_action")
     for index, s in enumerate(section):
       not_discount = s.find(
@@ -145,7 +145,7 @@ class GameScraper:
 
     return False
 
-  def discount_price(self):
+  def discount_price(self) -> str:
     section = self.soup.find_all("div", class_="game_purchase_action")
     for s in section:
       discount = s.find("div", class_="discount_final_price")

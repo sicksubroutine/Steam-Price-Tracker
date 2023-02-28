@@ -6,7 +6,8 @@ from flask_seasurf import SeaSurf
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
-## TODO: Try to redo scraping code as OOP
+## TODO: Update the various functions in loc_tools, including converting to OOP when needed and using email templates whenever possible.
+## TODO: Convert system over to not using Replit Database, try to use SQlite or something else.
 
 ## SETUP ##
 
