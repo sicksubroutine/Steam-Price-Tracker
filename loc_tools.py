@@ -206,7 +206,6 @@ def compare() -> None:
       image_url = s.image_url
       for_sale = s.for_sale
       has_demo = s.has_demo
-      bundle = s.bundle
       logging.debug(
         f"{game_name} {new_price} For Sale:{for_sale} Demo:{has_demo}")
       if db[match]["has_demo"] == False and has_demo == True:
