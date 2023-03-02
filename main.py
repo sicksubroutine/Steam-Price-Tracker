@@ -26,8 +26,8 @@ limiter.init_app(app)
 matches = db.prefix("game")
 print(f"{len(matches)} games in DB")
 for match in matches:
-  if db[match]["game_name"] == "System Shock":
-    db[match]["for_sale"] = False
+  if db[match]["game_name"] == "Singularity™":
+    print(db[match])
 
 #user testing area
 matches = db.prefix("user")
@@ -593,7 +593,7 @@ def background_task():
 
 
 if __name__ == "__main__":
-  schedule.every(3).hours.do(chores)
+  schedule.every(1).hours.do(chores)
   t = threading.Thread(target=background_task)
   t.start()
   app.run(host='0.0.0.0', port=81)

@@ -19,9 +19,9 @@ class GameScraper:
     self.bundle = self.bundle_check()
     self.name = None
     self.price = None
-    self.pre_purchase = self.pre_purchase_check()
     self.has_demo = self.demo_check()
     self.discount = self.discount_check()
+    self.pre_purchase = self.pre_purchase_check()
     self.for_sale = self.for_sale_check()
     self.free_to_play = self.free_to_play_check()
 
@@ -129,20 +129,21 @@ class GameScraper:
 
   def discount_check(self) -> bool:
     section = self.soup.find_all("div", class_="game_purchase_action")
+    #print(section)
     for index, s in enumerate(section):
       not_discount = s.find(
         "div", class_="discount_block game_purchase_discount no_discount")
       if not_discount == None:
         pass
       elif not_discount != None:
-        logging.debug("found the 'no discount' div")
         return False
       discount = s.find("div", class_="discount_final_price")
       if index == 0 and discount == None:
-        break
-      else:
+        continue
+      elif self.has_demo and index == 1 and discount != None:
         return True
-
+      elif self.has_demo == False and discount!= None and index == 0:
+        return True
     return False
 
   def discount_price(self) -> str:
@@ -217,7 +218,6 @@ def compare() -> None:
       if for_sale and db[match]["for_sale"] == False:
         count += 1
         logging.info(f"{db[match]['game_name']} is now for sale!")
-        # Replacing multiple emails with single digest email
         game_data = {
           'old_price': "0",
           'new_price': new_price,
@@ -242,6 +242,16 @@ def compare() -> None:
           "price_change_date": string_time
         })
         continue
+      elif not for_sale and db[match]["for_sale"]:
+        count += 1
+        logging.info(f"{db[match]['game_name']} is no longer for sale!")
+        db[match].update({
+          "old_price": "$0",
+          "price": "$0",
+          "percent_change": "$0",
+          "for_sale": False,
+          "price_change_date": string_time
+        })
       elif not for_sale and db[match]["for_sale"] == False:
         pass
       else:
