@@ -25,6 +25,9 @@ window.history.replaceState({ path: newUrl }, '', newUrl);
         } else if (filterValue === "for-sale" && game.dataset.forSale === "true") {
             game.style.display = "block";
             gameCount++;
+        } else if (filterValue === "discount" && game.dataset.discount === "true") {
+            game.style.display = "block";
+            gameCount++;
         } else if (filterValue === "not-for-sale" && game.dataset.forSale === "false") {
             game.style.display = "block";
             gameCount++;
@@ -83,9 +86,10 @@ window.history.replaceState({ path: newUrl }, '', newUrl);
  <select id="game-filter" class="url" onchange="filterGames()">
     <option value="all">All</option>
     <option value="has-demo">Has Demo</option>
+    <option value="discount">Discounted</option>
     <option value="not-for-sale">Not For Sale</option>
-    <option value="for-sale">For Sale</option>
     <option value="bundles">Bundles</option>
+    <option value="for-sale">For Sale</option>
   </select>
   <span class="num_of_games">Displayed Games:</span> <span id="game-count">{{num_of_games}}</span>
 </center>
@@ -94,7 +98,7 @@ window.history.replaceState({ path: newUrl }, '', newUrl);
   <div class="game-container">
   {% for game in game_list %}
   
-  <div class="game-box" id="game_{{ loop.index }}" data-for-sale="{{ 'true' if game.for_sale else 'false' }}" data-bundle="{{ 'true' if game.bundle else 'false' }}" data-hasdemo="{{ 'true' if game.has_demo else 'false' }}">
+  <div class="game-box" id="game_{{ loop.index }}" data-for-sale="{{ 'true' if game.for_sale else 'false' }}" data-bundle="{{ 'true' if game.bundle else 'false' }}" data-hasdemo="{{ 'true' if game.has_demo else 'false' }}" data-discount= "{{'true' if game.discount else 'false' }}">
   <a href="{{ game.url }}" class="game_link" target="_blank"><img src="{{ game.image_url }}" width="100px"><br>
 <span class="blue">{{ game.game_name }}</span></a><br> Current Price: <span class="red">{{ game.game_price }}</span><br>
 Old Price: <span class="red">{{ game.old_price }}</span> - Price Change:<span class="red"> {{ game.percent_change }}%</span><br>

@@ -27,7 +27,7 @@ class GameScraper:
 
     if not self.bundle:
       self.name = self.game_name()
-      logging.info(self.name)
+      #logging.info(self.name)
       if self.for_sale:
         if self.free_to_play:
           self.price = "$0"
@@ -69,7 +69,8 @@ class GameScraper:
 
   def game_price(self) -> str:
     if self.has_demo:
-      game_price = self.soup.find_all("div", class_="game_purchase_price price")
+      game_price = self.soup.find_all("div",
+                                      class_="game_purchase_price price")
       for index, price in enumerate(game_price):
         if price.get("data-price-final"):
           game_price = game_price[index]
@@ -121,7 +122,8 @@ class GameScraper:
       return False
 
   def demo_check(self) -> bool:
-    demo = self.soup.find("div", class_="game_area_purchase_game demo_above_purchase")
+    demo = self.soup.find("div",
+                          class_="game_area_purchase_game demo_above_purchase")
     if demo == None:
       return False
     else:
@@ -142,7 +144,7 @@ class GameScraper:
         continue
       elif self.has_demo and index == 1 and discount != None:
         return True
-      elif self.has_demo == False and discount!= None and index == 0:
+      elif self.has_demo == False and discount != None and index == 0:
         return True
     return False
 
@@ -207,6 +209,8 @@ def compare() -> None:
       image_url = s.image_url
       for_sale = s.for_sale
       has_demo = s.has_demo
+      discount = s.discount
+      db[match]["discount"] = discount
       logging.debug(
         f"{game_name} {new_price} For Sale:{for_sale} Demo:{has_demo}")
       if db[match]["has_demo"] == False and has_demo == True:
@@ -277,7 +281,6 @@ def compare() -> None:
             })
             logging.info(
               f"{game_name} - {new_price} - decreased by {percent_change}%")
-            # Replacing multiple emails with single digest email
             game_data = {
               'old_price': old_price,
               'new_price': new_price,

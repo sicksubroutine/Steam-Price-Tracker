@@ -348,7 +348,6 @@ def game_list():
 
 
 def game_list_func(username):
-  #dict = {match: db[match] for match in }
   game_list = [{
     "url": db[match]["url"],
     "old_price": db[match]["old_price"],
@@ -359,6 +358,7 @@ def game_list_func(username):
     "bundle": db[match]["bundle"],
     "target_price": db[match]["target_price"],
     "has_demo": db[match]["has_demo"],
+    "discount": db[match]["discount"],
     "price_change_date": db[match]["price_change_date"],
     "for_sale": db[match]["for_sale"]
   } for match in db.prefix("game") if db[match]["username"] == username]
@@ -381,6 +381,7 @@ def price_add():
     for_sale = s.for_sale
     has_demo = s.has_demo
     bundle = s.bundle
+    discount = s.discount
     logging.debug(
       f"[Price Add Function] {name} - {price} - {for_sale} - {has_demo} - {bundle}")
     if for_sale:
@@ -412,6 +413,7 @@ def price_add():
       "price_change_date": "",
       "wishlist": False,
       "has_demo": has_demo,
+      "discount": discount,
       "date_added": string_time
     }
     text = f"{name} Added!"
