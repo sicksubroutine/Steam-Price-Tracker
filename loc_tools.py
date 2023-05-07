@@ -1,10 +1,11 @@
 from bs4 import BeautifulSoup
 import requests, random, hashlib, string, os, datetime, time, logging, traceback
-from replit import db
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from jinja2 import Environment, PackageLoader
 import smtplib
+from databaseMan import DatabaseManager, before_request, open_db, close_db
+from flask import g
 
 PATH = "static/html/"
 logging.basicConfig(filename='app.log', level=logging.INFO)
@@ -157,6 +158,7 @@ class GameScraper:
       if discount:
         game_price = discount
         return game_price.text.strip()
+
 
 
 def purge_old_tokens() -> None:
@@ -420,12 +422,14 @@ def gen_unique_token(username) -> str:
   token_expiration_time = current_time_date + datetime.timedelta(minutes=30)
   token_expiration_time = token_expiration_time.strftime(
     "%m-%d-%Y %I:%M:%S %p")
+  token_request_date = current_time_date.strftime("%m-%d-%Y %I:%M:%S %p")
   logging.debug(token_expiration_time)
-  matches = db.prefix("user")
+  base = g.base
+  matches = base.get_all_users(username)
   for match in matches:
-    if db[match]["username"] == username:
-      email = db[match]["email"]
-  db_key = f"token{time.time()}"
+    if match["username"] == username:
+      email = match["email"]
+  """db_key = f"token{time.time()}"
   db[db_key] = {
     "token": token,
     "token_request_date": current_time_date.strftime("%m-%d-%Y %I:%M:%S %p"),
@@ -433,7 +437,15 @@ def gen_unique_token(username) -> str:
     "username": username,
     "email": email,
     "token_spent": False
-  }
+  }"""
+  
+  db_key = base.add_token(
+    token,
+    token_request_date,
+    token_expiration_time,
+    username,
+    email
+  )
   return db_key
 
 
@@ -532,16 +544,16 @@ def wishlist_process(steamID, username) -> None:
       else:
         target_price = "$0"
       for match in matches:
-        if db[match]["game_name"] == name and db[match]["username"] == username:
+        if db[match]["game_name"] == game_name and db[match]["username"] == username:
           db[match]["wishlist"] = True
-          logging.debug(f"Already loaded: {name}")
+          logging.debug(f"Already loaded: {game_name}")
           time.sleep(5)
           break
       else:
-        logging.debug(f"Adding {name} to db")
+        logging.debug(f"Adding {game_name} to db")
         game_key = "game" + str(random.randint(100_000_000, 999_999_999))
         db[game_key] = {
-          "game_name": name,
+          "game_name": game_name,
           "price": price,
           "url": url,
           "username": username,
@@ -577,3 +589,4 @@ def dupe_check(wishlist_list, username):
       del wishlist_list[game_id]
   logging.info(f"Duplicate check: {count} games skipped.")
   return wishlist_list
+

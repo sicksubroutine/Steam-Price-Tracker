@@ -1,10 +1,11 @@
 import os, random, time, schedule, datetime, threading, traceback, logging, pickle, hashlib
 from replit import db
-from flask import Flask, request, session, redirect, render_template
+from flask import Flask, request, session, redirect, render_template, g
 from loc_tools import GameScraper, saltGet, saltPass, chores, confirm_mail, gen_unique_token, token_expiration, wishlist_process, time_get
 from flask_seasurf import SeaSurf
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from databaseMan import close_db, before_request
 
 ## TODO: Update the various functions in loc_tools, including converting to OOP when needed and using email templates whenever possible.
 ## TODO: Convert system over to not using Replit Database, try to use SQlite or something else.
@@ -19,6 +20,10 @@ PATH = "static/html/"
 logging.basicConfig(filename='app.log', level=logging.INFO)
 limiter = Limiter(key_func=get_remote_address)
 limiter.init_app(app)
+DATABASE = "prime_database.db"
+app.teardown_appcontext(close_db)
+app.before_request(before_request)
+
 
 ## Testing/Direct Database Modification ##
 """
@@ -27,14 +32,33 @@ matches = db.prefix("game")
 print(f"{len(matches)} games in DB")
 for match in matches:
   if db[match]["game_name"] == "Singularity™":
-    print(db[match])
-
+    print(db[match]["game_name"])
+"""
 #user testing area
-matches = db.prefix("user")
-for match in matches:
-  if db[match]["username"] == "test_account":
-    db[match]["last_login"] = "Not yet Logged in"
 
+"""
+base = g.base
+  matches = db.prefix("user")
+
+  for match in matches:
+    username = db[match]["username"]
+    password = db[match]["password"]
+    salt = db[match]["salt"]
+    email = db[match]["email"]
+    creation_date = db[match]["creation_date"]
+    user_id = base.add_user(username, password, salt, email, creation_date)
+    print(user_id)
+    base.update_user(username, "email_confirmed",
+                     db[match]["email_confirmed"])
+    base.update_user(username, "last_login",
+                     db[match]["last_login"])
+    if db[match]["username"] == "godhole":
+      base.update_user(username, "admin", True)
+      user = base.get_user_by_username("godhole")
+"""
+
+
+"""
 #token testing area
 count = 0
 matches = db.prefix("token")
@@ -46,11 +70,12 @@ print(f"{count}")
 
 ## Index ##
 
-
 @app.route("/", methods=["GET"])
 def index():
   if session.get('logged_in'):
     return redirect('/game_list')
+  base = g.base
+  print(len(base.get_all_users()))
   return render_template('index.html', text=request.args.get("t"))
 
 
@@ -74,18 +99,23 @@ def sign():
     salt = saltGet()
     password = saltPass(form.get("password"), salt)
     email = form.get("email")
-    matches = db.prefix("user")
+    base = g.base
+    matches = base.get_all_users()
     for match in matches:
-      if db[match]["username"] == username:
+      if match["username"] == username:
         text = "Username already taken!"
         return redirect(f"/signup?t={text}")
-      if db[match]["email"] == email:
+      if match["email"] == email:
         text = "Email already exists!"
         return redirect(f"/signup?t={text}")
-    user_num = "user" + str(random.randint(100_000_000, 999_999_999))
+    #user_num = "user" + str(random.randint(100_000_000, 999_999_999))
     account_creation = datetime.datetime.now()
     account_creation = account_creation.strftime("%m-%d-%Y %I:%M:%S %p")
-    db[user_num] = {
+    base.add_user(username, password, salt, email, account_creation)
+    base.update_user(username, "email_confirmed", False)
+    base.update_user(username, "last_login", "Never Logged In")
+    base.update_user(username, "admin", False)
+    """db[user_num] = {
       "username": username,
       "password": password,
       "salt": salt,
@@ -94,7 +124,7 @@ def sign():
       "creation_date": account_creation,
       "email_confirmed": False,
       "last_login": "Never Logged In",
-    }
+    }"""
     confirm_email(username)
     text = f"You are signed up as {username}. Please confirm your email address before logging in!"
     logging.info(f"{text}")
@@ -124,35 +154,33 @@ def log_in():
     form = request.form
     username = form.get("username")
     password = form.get("password")
-    matches = db.prefix("user")
+    base = g.base
+    matches = base.get_all_users()
+    #matches = db.prefix("user")
     for match in matches:
-      if db[match]["username"] == username:
+      if match["username"] == username:
         current_time = datetime.datetime.now()
-        salt = db[match]["salt"]
+        salt = match["salt"]
         password = saltPass(password, salt)
-        if db[match]["username"] == username and db[match][
-            "password"] == password and db[match]["admin"] == True:
-          db[match]["last_login"] = current_time.strftime(
-            "%m-%d-%Y %I:%M:%S %p")
+        if match["username"] == username and match["password"] == password and match["admin"] == True:
+          last_login = current_time.strftime("%m-%d-%Y %I:%M:%S %p")
+          base.update_user(username, "last_login", last_login)
           session["username"] = username
           session["admin"] = True
           session["logged_in"] = True
-          text = f"{db[match]['username']} (Admin!) Logged In!"
+          text = f"{match['username']} (Admin!) Logged In!"
           return redirect(f"/game_list?t={text}")
-        elif db[match]["username"] == username and db[match][
-            "password"] == password:
-          if db[match]["email_confirmed"] == False:
+        elif match["username"] == username and match["password"] == password:
+          if match["email_confirmed"] == False:
             # check if user has a confirmation token
-            tokens = db.prefix("token")
+            tokens = base.get_all_tokens()
             for token in tokens:
-              if db[token]["username"] == username and db[token][
-                  "token_spent"] == True:
+              if token["username"] == username and token["token_spent"] == True:
                 # create new token and send email
                 confirm_email(username)
                 text = "Email Confirmation Sent! Please check your Email."
                 return redirect(f"/login?t={text}")
-              elif db[token]["username"] == username and db[token][
-                  "token_spent"] == False:
+              elif token["username"] == username and token["token_spent"] == False:
                 text = "Email not confirmed! Please confirm your email address!"
                 return redirect(f"/login?t={text}")
             else:
@@ -160,8 +188,8 @@ def log_in():
               confirm_email(username)
               text = "Email Confirmation Sent! Please check your Email."
               return redirect(f"/login?t={text}")
-          db[match]["last_login"] = current_time.strftime(
-            "%m-%d-%Y %I:%M:%S %p")
+
+          base.update_user(username, "last_login", current_time.strftime("%m-%d-%Y %I:%M:%M %p"))
           session["username"] = username
           session["logged_in"] = True
           text = "User Logged In!"
@@ -179,10 +207,11 @@ def log_in():
 
 def confirm_email(username) -> None:
   db_key = gen_unique_token(username)
-  matches = db.prefix("token")
+  
+  matches = base.get_all_tokens()
   for match in matches:
-    if db_key == match:
-      confirm_mail(db[match]["email"], db[match]["token"], "confirm")
+    if db_key == match["id"]:
+      confirm_mail(match["email"], match["token"], "confirm")
 
 
 @app.route("/confirm", methods=["GET"])
@@ -193,17 +222,18 @@ def confirm():
   try:
     token = request.args.get("t")
     type = request.args.get("ty")
-    users = db.prefix("user")
-    matches = db.prefix("token")
+    base = g.base
+    users = base.get_all_users()
+    matches = base.get_all_tokens()
     for match in matches:
-      if token == db[match]["token"] and db[match]["token_spent"] == False:
-        username = db[match]["username"]
+      if token == match["token"] and match["token_spent"] == False:
+        username = match["username"]
         if token_expiration(token) == False:
           for user in users:
-            if db[user]["username"] == username:
+            if user["username"] == username:
               if type == "confirm":
-                db[match]["token_spent"] = True
-                db[user]["email_confirmed"] = True
+                base.update_user(username, "email_confirmed", True)
+                base.update_token(token, "token_spent", True)
                 text = "Email Confirmed!"
                 return redirect(f"/login?t={text}")
               elif type == "recovery":
@@ -237,15 +267,16 @@ def email_check():
   try:
     form = request.form
     email = form.get("email")
-    matches = db.prefix("user")
+    base = g.base 
+    matches = base.get_all_users()
     for match in matches:
-      if db[match]["email"] == email:
-        username = db[match]["username"]
+      if match["email"] == email:
+        username = match["username"]
         db_key = gen_unique_token(username)
-        token_match = db.prefix("token")
+        token_match = base.get_all_tokens()
         for tm in token_match:
           if db_key == tm:
-            token = db[tm]["token"]
+            token = tm["token"]
             confirm_mail(email, token, "recovery")
             text = "Please check your email to recover password."
             return redirect(f"/login?t={text}")
@@ -383,7 +414,8 @@ def price_add():
     bundle = s.bundle
     discount = s.discount
     logging.debug(
-      f"[Price Add Function] {name} - {price} - {for_sale} - {has_demo} - {bundle}")
+      f"[Price Add Function] {name} - {price} - {for_sale} - {has_demo} - {bundle}"
+    )
     if for_sale:
       price_t = price
       price_t = float(price_t[1:])
@@ -579,9 +611,7 @@ def logout():
   if not session.get('logged_in'):
     text = "Error, not logged in!"
     return redirect(f"/login?t={text}")
-  session.pop("username", None)
-  session.pop("logged_in", None)
-  session.pop("admin", None)
+  session.clear()
   return redirect("/")
 
 
@@ -595,7 +625,7 @@ def background_task():
 
 
 if __name__ == "__main__":
-  schedule.every(1).hours.do(chores)
-  t = threading.Thread(target=background_task)
-  t.start()
-  app.run(host='0.0.0.0', port=81)
+  #app.run(host='0.0.0.0', port=81)
+  #schedule.every(1).hours.do(chores)
+  #t = threading.Thread(target=background_task)
+  #t.start()

@@ -3,6 +3,7 @@
 *.csv
 *.log
 *.txt
+*.db
 *.pickle
 __pycache__/
 
