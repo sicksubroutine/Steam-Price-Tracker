@@ -347,15 +347,15 @@ def dupe_check(wishlist_list, username):
 def chores() -> None:
   now_str, now = time_get()
   try:
-      with app.app_context():
-        before_request()
-        logging.info(f"Chores starting at {now_str}")
-        purge_old_tokens()
-        compare()
-        logging.info("Chores finished")
+    with app.app_context():
+      before_request()
+      logging.info(f"Chores starting at {now_str}")
+      purge_old_tokens()
+      compare()
+      logging.info("Chores finished")
   except Exception as e:
-      logging.debug(e)
-      logging.info("Chores failed")
+    close_db(e)
+    logging.debug(f"Chores failed! {e}")
   finally:
       close_db()
       after_str, after = time_get()
