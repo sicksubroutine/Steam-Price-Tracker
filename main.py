@@ -13,6 +13,7 @@ logging.basicConfig(filename='app.log', level=logging.DEBUG)
 
 ## Index ##
 
+
 @app.route("/", methods=["GET"])
 def index():
   if session.get('logged_in'):
@@ -24,7 +25,9 @@ def index():
   print(f"{len(games)} games in db")
   return render_template('index.html', text=request.args.get("t"))
 
+
 ## SIGN UP ##
+
 
 @csrf.include
 @app.route("/signup", methods=["GET"])
@@ -61,7 +64,9 @@ def sign():
     text = f"Error! {e}"
     return redirect(f"/signup?t={text}")
 
+
 ## LOGIN ##
+
 
 @csrf.include
 @app.route("/login", methods=["GET"])
@@ -81,7 +86,8 @@ def log_in():
     password = form.get("password")
     base = g.base
     current_time = datetime.datetime.now()
-    match = next((m for m in base.get_all_users() if m["username"] == username), None)
+    match = next(
+      (m for m in base.get_all_users() if m["username"] == username), None)
     if not match:
       raise Exception("Invalid login!")
     salt = match["salt"]
@@ -90,12 +96,15 @@ def log_in():
     if not match["password"] == password:
       raise Exception("Invalid login!")
     if match["email_confirmed"] == False:
-      token = next((t for t in base.get_all_tokens() if t["username"] == username and t["token_spent"] == True), None)
+      token = next((t for t in base.get_all_tokens()
+                    if t["username"] == username and t["token_spent"] == True),
+                   None)
       if not token:
-        raise Exception("Email not confirmed! Please confirm your email address!")
+        raise Exception(
+          "Email not confirmed! Please confirm your email address!")
       confirm_email(username)
       text = "Email Confirmation Sent! Please check your Email."
-      return redirect(f"/login?t={text}") 
+      return redirect(f"/login?t={text}")
     if match["admin"] == True:
       base.update_user(username, "last_login", last_login)
       session.update({"username": username, "admin": True, "logged_in": True})
@@ -112,7 +121,9 @@ def log_in():
     logging.debug(f"{e}")
     return redirect(f"/login?t={text}")
 
+
 ## EMAIL CONFIRMATION ##
+
 
 def confirm_email(username) -> None:
   try:
@@ -137,12 +148,15 @@ def confirm():
     type = request.args.get("ty")
     base = g.base
     tokens = base.get_all_tokens()
-    match = next((m for m in tokens if m["token"] == token and not m["token_spent"]), None)
+    match = next(
+      (m for m in tokens if m["token"] == token and not m["token_spent"]),
+      None)
     if not match:
       raise Exception("Invalid Token!")
     username = match["username"]
     if not token_expiration(token, tokens):
-      user = next((u for u in base.get_all_users() if u["username"] == username), None)
+      user = next(
+        (u for u in base.get_all_users() if u["username"] == username), None)
       if not user:
         raise Exception("Invalid User!")
       if type == "confirm":
@@ -154,14 +168,16 @@ def confirm():
         text = "Please update your password!"
         return redirect(f"/pass?t={text}&token={token}")
     else:
-        base.update_token(token, "token_spent", True)
-        raise Exception("Token Expired!")
+      base.update_token(token, "token_spent", True)
+      raise Exception("Token Expired!")
   except Exception as e:
     text = f"Error! {e}"
     logging.debug(f"{e}")
     return redirect(f"/login?t={text}")
 
+
 ## PASSWORD RECOVERY ##
+
 
 @csrf.include
 @app.route("/pass_recover", methods=["GET"])
@@ -189,9 +205,10 @@ def email_check():
     text = "Please check your email to recover password."
     return redirect(f"/login?t={text}")
   except StopIteration as e:
-      text = f"Error! {e}"
-      logging.debug(f"{e}")
-      return redirect(f"/pass_recover?t={text}")  
+    text = f"Error! {e}"
+    logging.debug(f"{e}")
+    return redirect(f"/pass_recover?t={text}")
+
 
 @csrf.include
 @app.route("/pass", methods=["GET"])
@@ -200,6 +217,7 @@ def pass_reset_page():
   token = request.args.get("token")
   return render_template("reset.html", text=text, token=token)
 
+
 @app.route("/password_reset", methods=["POST"])
 def pass_reset_funct():
   try:
@@ -207,13 +225,15 @@ def pass_reset_funct():
     token = form.get("token")
     password = form.get("password")
     base = g.base
-    match = next((m for m in base.get_all_tokens() if m["token"] == token), None)
+    match = next((m for m in base.get_all_tokens() if m["token"] == token),
+                 None)
     if not match:
-        raise Exception("Invalid Token")
+      raise Exception("Invalid Token")
     username = match["username"]
-    user = next((u for u in base.get_all_users() if u["username"] == username), None)
+    user = next((u for u in base.get_all_users() if u["username"] == username),
+                None)
     if not user:
-        raise Exception("Invalid Username")
+      raise Exception("Invalid Username")
     salt = saltGet()
     password = saltPass(password, salt)
     base.update_token(token, "token_spent", True)
@@ -222,11 +242,13 @@ def pass_reset_funct():
     text = "Password Reset! Please login."
     return redirect(f"/login?t={text}")
   except Exception as e:
-      text = f"Error! {e}"
-      logging.debug(f"{e}")
-      return redirect(f"/login?t={text}")
+    text = f"Error! {e}"
+    logging.debug(f"{e}")
+    return redirect(f"/login?t={text}")
+
 
 ## GAME LIST ##
+
 
 @app.route("/game_list", methods=['GET'])
 def game_list():
@@ -257,23 +279,17 @@ def price_add():
     url = form.get("url")
     username = session.get("username")
     s = GameScraper(url)
-    logging.debug(f"[Price Add Function] {s.name} - {s.price} - {s.for_sale} - {s.has_demo} - {s.bundle}")
+    logging.debug(
+      f"[Price Add Function] {s.name} - {s.price} - {s.for_sale} - {s.has_demo} - {s.bundle}"
+    )
     target_price = f"${round(float(s.price[1:]) * 0.85, 2):.2f}" if s.for_sale else "$0"
     string_time, _ = time_get()
-    if any(m["game_name"] == s.name for m in base.get_games_by_username(username)):
+    if any(m["game_name"] == s.name
+           for m in base.get_games_by_username(username)):
       raise Exception("Game Already Added! Try another URL!")
-    base.add_game(s.name,
-                  s.price, 
-                  url, 
-                  username, 
-                  s.bundle, 
-                  s.imageURL, 
-                  s.for_sale, 
-                  s.has_demo, 
-                  s.discount, 
-                  string_time,
-                  target_price
-    )
+    base.add_game(s.name, s.price, url, username, s.bundle, s.imageURL,
+                  s.for_sale, s.has_demo, s.discount, string_time,
+                  target_price)
     text = f"{s.name} Added!"
     return redirect(f"/game_list?t={text}")
   except Exception as e:
@@ -297,12 +313,14 @@ def price_target():
     if not target_price:
       raise Exception("You must enter a target price!")
     target_price = float(target_price.replace("$", ""))
-    match = next((m for m in base.get_all_games() if m["game_name"] == game and m["username"] == username), None)
+    match = next((m for m in base.get_all_games()
+                  if m["game_name"] == game and m["username"] == username),
+                 None)
     if not match:
-        raise Exception(f"{game} not found for user {username}!")
+      raise Exception(f"{game} not found for user {username}!")
     price = float(match["price"].replace("$", ""))
     if target_price > price:
-        raise Exception("Target price must be below current price!")
+      raise Exception("Target price must be below current price!")
     else:
       target_percent = round((target_price - price) / (price * 100), 2)
       target_price = f"${target_price:.2f}"
@@ -326,8 +344,8 @@ def wishlist_add():
     username = session.get("username")
     steamID = form.get("steamID")
     print("Running Wishlist Add")
-    job = schedule.every(5).seconds.do(lambda: wishlist_add_func(steamID, username, job))
-    #run_background_thread()
+    job = schedule.every(5).seconds.do(
+      lambda: wishlist_add_func(steamID, username, job))
     text = "Processing Wishlist"
     return redirect(f"/game_list?t={text}")
 
@@ -343,6 +361,7 @@ def wishlist_add_func(steamID, username, job):
     text = f"Error! {e}"
     schedule.cancel_job(job)
     return redirect(f"/game_list?t={text}")
+
 
 @app.route("/delete_game", methods=["GET"])
 def delete_game():
@@ -414,6 +433,7 @@ def do_chores():
   text = "Chores Done!"
   return redirect(f"/admin?t={text}")
 
+
 ## LOGOUT ##
 
 
@@ -428,19 +448,21 @@ def logout():
 
 ## CHORES/MISC ##
 
+
 def background_task():
   while True:
     schedule.run_pending()
-    time.sleep(5)
+    time.sleep(1)
+
 
 def run_background_thread():
   t = threading.Thread(target=background_task)
   t.start()
   logging.debug("Background thread started")
-    
-chores()
+
+
 if __name__ == "__main__":
-  app.run(host='0.0.0.0', debug=True, port=81)
-  schedule.every(1).hours.do(chores)
+  schedule.every(2).hours.do(chores)
   t = threading.Thread(target=background_task)
   t.start()
+  app.run(host='0.0.0.0', port=81)

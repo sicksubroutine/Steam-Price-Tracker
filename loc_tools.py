@@ -353,10 +353,10 @@ def chores() -> None:
       purge_old_tokens()
       compare()
       logging.info("Chores finished")
+      close_db()
   except Exception as e:
     logging.debug(f"Chores failed! {e}")
   finally:
-      close_db()
       after_str, after = time_get()
       time_taken = after - now
       time_taken_secs = round(time_taken.total_seconds(), 2)
@@ -391,84 +391,85 @@ def username_to_email(username) -> str:
     logging.debug(e)
 
 def compare() -> None:
-    base = g.base
-    matches = base.get_all_games()
-    email_digest = {}
-    count = 0
-    for match in matches:
-        try:
-            email_digest, count = update_game_data(match, email_digest, count)
-        except Exception as e:
-            logging.debug(e)
-    price_change_mail(email_digest)
-    logging.info(f"{count} prices updated")
+  base = g.base
+  matches = base.get_all_games()
+  logging.info(f"{len(matches)} games in db")
+  email_digest = {}
+  count = 0
+  for match in matches:
+      try:
+          email_digest, count = update_game_data(match, email_digest, count)
+      except Exception as e:
+          logging.debug(e)
+  price_change_mail(email_digest)
+  logging.info(f"{count} prices updated")
 
 def update_game_data(match, email_digest, count):
-    base = g.base
-    string_time, _ = time_get()
-    s = GameScraper(match["url"])
-    username = match["username"]
-    email = username_to_email(username)
-    logging.debug(f"==Scraping {match['game_name']}==")
-    try:
-      if match["has_demo"] != s.has_demo:
-        base.update_game(match["game_name"], "has_demo", s.has_demo)
-        logging.info(f"{s.name} 'has_demo' value updated to {s.has_demo}")
-      if s.for_sale and not match["for_sale"]:
-          count += 1
-          if s.for_sale:
-              logging.info(f"{s.name} is now for sale!")
-              game_data = {
-                  'old_price': "0",
-                  'new_price': s.price,
-                  'percent_change': "0",
-                  'url': match["url"],
-                  'image_url': s.imageURL,
-                  'for_sale': s.for_sale,
-                  'type': "on_sale"
-              }
-              email_digest.setdefault(username, {'email': email, 'games': {}})
-              email_digest[username]['games'][s.name] = game_data
-          elif not s.for_sale and match["for_sale"]:
-              logging.info(f"Weird! {s.name} is no longer for sale!")
-              base.update_game(s.name, "price", "$0")
-              base.update_game(s.name, "old_price", "$0")
-              base.update_game(s.name, "percent_change", "0")
-          base.update_game(s.name, "for_sale", s.for_sale)
-          base.update_game(s.name, "price_change_date", string_time)
-      if s.for_sale and s.price != match["price"]:
-          new_price = float(s.price[1:])
-          old_price = float(match["price"][1:])
-          percent_change = round((new_price - old_price) / old_price * 100, 2)
-          target_percent = float(match["target_percent"])
-          if percent_change <= target_percent:
-              count += 1
-              base.update_game(s.name, "old_price", f"${old_price}")
-              base.update_game(s.name, "price", f"${new_price}")
-              base.update_game(s.name, "percent_change", f"{percent_change}")
-              base.update_game(s.name, "price_change_date", string_time)
-              logging.info(f"{s.name} - {new_price} - decreased by {percent_change}%")
-              game_data = {
-                  'old_price': old_price,
-                  'new_price': new_price,
-                  'percent_change': percent_change,
-                  'url': match["url"],
-                  'image_url': s.imageURL,
-                  'for_sale': s.for_sale,
-                  'type': "price_change"
-              }
-              email_digest.setdefault(username, {'email': email, 'games': {}})
-              email_digest[username]['games'][s.name] = game_data
-          else:
-              base.update_game(s.name, "old_price", f"${old_price}")
-              base.update_game(s.name, "price", f"${new_price}")
-              base.update_game(s.name, "percent_change", f"{percent_change}")
-              base.update_game(s.name, "price_change_date", string_time)
-              logging.info(f"{s.name} Price increased by {percent_change}%")
-      elif not s.for_sale:
-          logging.debug(f"=={s.name} still not for sale==")
-      elif s.for_sale and s.price == match["price"]:
-          logging.debug(f"=={s.name} Price not changed==")
-      return email_digest, count
-    except Exception as e:
-        logging.debug(e)
+  base = g.base
+  string_time, _ = time_get()
+  s = GameScraper(match["url"])
+  username = match["username"]
+  email = username_to_email(username)
+  logging.debug(f"==Scraping {match['game_name']}==")
+  try:
+    if match["has_demo"] != s.has_demo:
+      base.update_game(match["game_name"], "has_demo", s.has_demo)
+      logging.info(f"{s.name} 'has_demo' value updated to {s.has_demo}")
+    if s.for_sale and not match["for_sale"]:
+        count += 1
+        if s.for_sale:
+            logging.info(f"{s.name} is now for sale!")
+            game_data = {
+                'old_price': "0",
+                'new_price': s.price,
+                'percent_change': "0",
+                'url': match["url"],
+                'image_url': s.imageURL,
+                'for_sale': s.for_sale,
+                'type': "on_sale"
+            }
+            email_digest.setdefault(username, {'email': email, 'games': {}})
+            email_digest[username]['games'][s.name] = game_data
+        elif not s.for_sale and match["for_sale"]:
+            logging.info(f"Weird! {s.name} is no longer for sale!")
+            base.update_game(s.name, "price", "$0")
+            base.update_game(s.name, "old_price", "$0")
+            base.update_game(s.name, "percent_change", "0")
+        base.update_game(s.name, "for_sale", s.for_sale)
+        base.update_game(s.name, "price_change_date", string_time)
+    if s.for_sale and s.price != match["price"]:
+        new_price = float(s.price[1:])
+        old_price = float(match["price"][1:])
+        percent_change = round((new_price - old_price) / old_price * 100, 2)
+        target_percent = float(match["target_percent"])
+        if percent_change <= target_percent:
+            count += 1
+            base.update_game(s.name, "old_price", f"${old_price}")
+            base.update_game(s.name, "price", f"${new_price}")
+            base.update_game(s.name, "percent_change", f"{percent_change}")
+            base.update_game(s.name, "price_change_date", string_time)
+            logging.info(f"{s.name} - {new_price} - decreased by {percent_change}%")
+            game_data = {
+                'old_price': old_price,
+                'new_price': new_price,
+                'percent_change': percent_change,
+                'url': match["url"],
+                'image_url': s.imageURL,
+                'for_sale': s.for_sale,
+                'type': "price_change"
+            }
+            email_digest.setdefault(username, {'email': email, 'games': {}})
+            email_digest[username]['games'][s.name] = game_data
+        else:
+            base.update_game(s.name, "old_price", f"${old_price}")
+            base.update_game(s.name, "price", f"${new_price}")
+            base.update_game(s.name, "percent_change", f"{percent_change}")
+            base.update_game(s.name, "price_change_date", string_time)
+            logging.info(f"{s.name} Price increased by {percent_change}%")
+    elif not s.for_sale:
+        logging.debug(f"=={s.name} still not for sale==")
+    elif s.for_sale and s.price == match["price"]:
+        logging.debug(f"=={s.name} Price not changed==")
+    return email_digest, count
+  except Exception as e:
+      logging.debug(e)
