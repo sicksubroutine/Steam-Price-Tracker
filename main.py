@@ -1,4 +1,4 @@
-import os, random, time, schedule, datetime, threading, traceback, logging, hashlib
+import os, time, schedule, datetime, threading, logging
 from flask import Flask, request, session, redirect, render_template, g
 from loc_tools import GameScraper, saltGet, saltPass, chores, confirm_mail, gen_unique_token, token_expiration, wishlist_process, time_get
 from flask_seasurf import SeaSurf
@@ -443,6 +443,6 @@ def background_task():
 
 if __name__ == "__main__":
   app.run(host='0.0.0.0', debug=True, port=81)
-  #schedule.every(1).hours.do(chores)
-  #t = threading.Thread(target=background_task)
-  #t.start()
+  schedule.every(1).hours.do(chores)
+  t = threading.Thread(target=background_task)
+  t.start()
