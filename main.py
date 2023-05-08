@@ -1,21 +1,15 @@
-import os, time, schedule, datetime, threading, logging
+import time, schedule, datetime, threading, logging
 from flask import Flask, request, session, redirect, render_template, g
-from loc_tools import GameScraper, saltGet, saltPass, chores, confirm_mail, gen_unique_token, token_expiration, wishlist_process, time_get
+from loc_tools import GameScraper, app, saltGet, saltPass, confirm_mail, token_expiration, time_get, wishlist_process, chores, gen_unique_token
 from flask_seasurf import SeaSurf
-from databaseMan import close_db, before_request
 
 ## TODO: Update the various functions in loc_tools, including converting to OOP when needed and using email templates whenever possible.
 
 ## SETUP ##
-
-app = Flask(__name__, static_url_path='/static')
 csrf = SeaSurf()
 csrf.init_app(app)
-app.secret_key = os.environ['sessionKey']
 PATH = "static/html/"
 logging.basicConfig(filename='app.log', level=logging.DEBUG)
-app.teardown_appcontext(close_db)
-app.before_request(before_request)
 
 ## Index ##
 
@@ -28,8 +22,6 @@ def index():
   print(f"{len(users)} users in db")
   games = base.get_all_games()
   print(f"{len(games)} games in db")
-  for game in games:
-    print(game["price"])
   return render_template('index.html', text=request.args.get("t"))
 
 ## SIGN UP ##
@@ -144,11 +136,12 @@ def confirm():
     token = request.args.get("t")
     type = request.args.get("ty")
     base = g.base
-    match = next((m for m in base.get_all_tokens() if m["token"] == token and not m["token_spent"]), None)
+    tokens = base.get_all_tokens()
+    match = next((m for m in tokens if m["token"] == token and not m["token_spent"]), None)
     if not match:
       raise Exception("Invalid Token!")
     username = match["username"]
-    if not token_expiration(token):
+    if not token_expiration(token, tokens):
       user = next((u for u in base.get_all_users() if u["username"] == username), None)
       if not user:
         raise Exception("Invalid User!")
@@ -243,8 +236,8 @@ def game_list():
   username = session.get("username")
   base = g.base
   game_list = base.get_games_by_username(username)
-  #print(game_list)
   num_of_games = len(game_list)
+  print(f"Number of games: {num_of_games}")
   return render_template("game_list.html",
                          game_list=game_list,
                          user=username,
@@ -332,14 +325,16 @@ def wishlist_add():
     form = request.form
     username = session.get("username")
     steamID = form.get("steamID")
-    job = schedule.every(5).seconds.do(
-      lambda: wishlist_add_func(steamID, username, job))
+    print("Running Wishlist Add")
+    job = schedule.every(5).seconds.do(lambda: wishlist_add_func(steamID, username, job))
+    #run_background_thread()
     text = "Processing Wishlist"
     return redirect(f"/game_list?t={text}")
 
 
 def wishlist_add_func(steamID, username, job):
   try:
+    print("Running Wishlist Add Func")
     wishlist_process(steamID, username)
     text = "Wishlist added!"
     schedule.cancel_job(job)
@@ -348,7 +343,6 @@ def wishlist_add_func(steamID, username, job):
     text = f"Error! {e}"
     schedule.cancel_job(job)
     return redirect(f"/game_list?t={text}")
-
 
 @app.route("/delete_game", methods=["GET"])
 def delete_game():
@@ -420,7 +414,6 @@ def do_chores():
   text = "Chores Done!"
   return redirect(f"/admin?t={text}")
 
-
 ## LOGOUT ##
 
 
@@ -435,13 +428,17 @@ def logout():
 
 ## CHORES/MISC ##
 
-
 def background_task():
   while True:
     schedule.run_pending()
     time.sleep(5)
 
-
+def run_background_thread():
+  t = threading.Thread(target=background_task)
+  t.start()
+  logging.debug("Background thread started")
+    
+chores()
 if __name__ == "__main__":
   app.run(host='0.0.0.0', debug=True, port=81)
   schedule.every(1).hours.do(chores)

@@ -1,11 +1,13 @@
 from bs4 import BeautifulSoup
-import requests, random, hashlib, string, os, datetime,  logging
+import requests, random, hashlib, string, os, datetime, logging
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from jinja2 import Environment, PackageLoader
 import smtplib
-from databaseMan import DatabaseManager, before_request, open_db, close_db
 from flask import g
+
+from __init__ import app
+from databaseMan import before_request, close_db
 
 PATH = "static/html/"
 logging.basicConfig(filename='app.log', level=logging.DEBUG)
@@ -156,114 +158,6 @@ class GameScraper:
         return game_price.text.strip()
 
 
-
-def purge_old_tokens() -> None:
-  try:
-    expire_grace = datetime.datetime.now()
-    expire_grace = expire_grace + datetime.timedelta(hours=2)
-    base = g.base
-    expired_tokens = [m for m in base.get_all_tokens() if m["token_spent"] or datetime.datetime.strptime(m["token_expiration_time"], "%m-%d-%Y %I:%M:%S %p") <= expire_grace]
-    for token in expired_tokens:
-      base.delete_token(token)
-    logging.info(f"{len(expired_tokens)} Tokens Purged")
-  except Exception as e:
-    logging.debug(e)
-
-def username_to_email(username):
-  try:
-    base = g.base
-    user = base.get_user_by_username(username)
-    if not user:
-      raise Exception("User not found")
-    return user["email"]
-  except Exception as e:
-    logging.debug(e)
-
-
-def compare():
-    base = g.base
-    matches = base.get_all_games()
-    email_digest = {}
-    count = 0
-    for match in matches:
-        try:
-            email_digest, count = update_game_data(match, email_digest, count)
-        except Exception as e:
-            logging.debug(e)
-    price_change_mail(email_digest)
-    logging.info(f"{count} prices updated")
-    return email_digest
-
-def update_game_data(match, email_digest, count):
-    base = g.base
-    string_time, _ = time_get()
-    s = GameScraper(match["url"])
-    username = match["username"]
-    email = username_to_email(username)
-    logging.debug(f"==Scraping {match['game_name']}==")
-    try:
-      if match["has_demo"] != s.has_demo:
-        base.update_game(match["game_name"], "has_demo", s.has_demo)
-        logging.info(f"{s.game_name} 'has_demo' value updated to {s.has_demo}")
-      if s.for_sale and not match["for_sale"]:
-          count += 1
-          if s.for_sale:
-              logging.info(f"{s.game_name} is now for sale!")
-              game_data = {
-                  'old_price': "0",
-                  'new_price': s.price,
-                  'percent_change': "0",
-                  'url': match["url"],
-                  'image_url': s.imageURL,
-                  'for_sale': s.for_sale,
-                  'type': "on_sale"
-              }
-              email_digest.setdefault(username, {'email': email, 'games': {}})
-              email_digest[username]['games'][s.game_name] = game_data
-          elif not s.for_sale and match["for_sale"]:
-              logging.info(f"Weird! {s.game_name} is no longer for sale!")
-              base.update_game(s.game_name, "price", "$0")
-              base.update_game(s.game_name, "old_price", "$0")
-              base.update_game(s.game_name, "percent_change", "0")
-          base.update_game(s.game_name, "for_sale", s.for_sale)
-          base.update_game(s.game_name, "price_change_date", string_time)
-      if s.for_sale and s.price != match["price"]:
-          new_price = float(s.price[1:])
-          old_price = float(match["price"][1:])
-          percent_change = round((new_price - old_price) / old_price * 100, 2)
-          target_percent = float(match["target_percent"])
-          if percent_change <= target_percent:
-              count += 1
-              base.update_game(s.game_name, "old_price", f"${old_price}")
-              base.update_game(s.game_name, "price", f"${new_price}")
-              base.update_game(s.game_name, "percent_change", f"{percent_change}")
-              base.update_game(s.game_name, "price_change_date", string_time)
-              logging.info(f"{s.game_name} - {new_price} - decreased by {percent_change}%")
-              game_data = {
-                  'old_price': old_price,
-                  'new_price': new_price,
-                  'percent_change': percent_change,
-                  'url': match["url"],
-                  'image_url': s.imageURL,
-                  'for_sale': s.for_sale,
-                  'type': "price_change"
-              }
-              email_digest.setdefault(username, {'email': email, 'games': {}})
-              email_digest[username]['games'][s.game_name] = game_data
-          else:
-              base.update_game(s.game_name, "old_price", f"${old_price}")
-              base.update_game(s.game_name, "price", f"${new_price}")
-              base.update_game(s.game_name, "percent_change", f"{percent_change}")
-              base.update_game(s.game_name, "price_change_date", string_time)
-              logging.info(f"{s.game_name} Price increased by {percent_change}%")
-      elif not s.for_sale:
-          logging.debug(f"=={s.game_name} still not for sale==")
-      elif s.for_sale and s.price == match["price"]:
-          logging.debug(f"=={s.game_name} Price not changed==")
-      return email_digest, count
-    except Exception as e:
-        logging.debug(e)
-
 def price_change_mail(email_digest) -> None:
   if not email_digest:
     logging.info("No email digest to send!")
@@ -344,12 +238,6 @@ def saltGet() -> str:
     random.choice(string.ascii_letters + string.digits + string.punctuation)
     for _ in range(30))
 
-
-def tokenGet() -> str:
-  return ''.join(
-    random.choice(string.ascii_letters + string.digits) for _ in range(30))
-
-
 def gen_unique_token(username) -> str:
   token = tokenGet().lower()
   current_time = datetime.datetime.now()
@@ -370,13 +258,15 @@ def gen_unique_token(username) -> str:
   )
   return db_key
 
+def tokenGet() -> str:
+  return ''.join(
+    random.choice(string.ascii_letters + string.digits) for _ in range(30))
 
-def token_expiration(token) -> bool:
-  base = g.base
-  tokens = base.get_all_tokens()
-  for token in tokens:
-    if token["token"] == token and not token["token_spent"]:
-      expiry_time = datetime.datetime.strptime(token["token_expiration_time"], "%m-%d-%Y %I:%M:%S %p")
+
+def token_expiration(token, tokens) -> bool:
+  for t in tokens:
+    if t["token"] == token and not token["token_spent"]:
+      expiry_time = datetime.datetime.strptime(t["token_expiration_time"], "%m-%d-%Y %I:%M:%S %p")
       return datetime.datetime.now() > expiry_time
 
 
@@ -385,18 +275,89 @@ def time_get() -> str:
   string_time = PT_time.strftime("%m-%d-%Y %I:%M:%S %p")
   return string_time, PT_time
 
+def wishlist_process(steamID, username) -> None:
+    with app.app_context():
+      before_request()
+      logging.debug(f"Processing wishlist for user: {username}")
+      page = 0
+      wishlist = {}
+      wishlist_url = f"https://store.steampowered.com/wishlist/profiles/{steamID}/wishlistdata"
+      try:
+          base = g.base
+          matches = base.get_all_games()
+          while True:
+              response = requests.get(wishlist_url, params={"p": page})
+              if response.status_code == 500:
+                  logging.debug("Error: Account Privacy settings are probably blocking wishlist lookup.")
+                  break
+              data = response.json()
+              if not data:
+                  break
+              wishlist.update(data)
+              page += 1
+          logging.debug(f"Wishlist has {page} pages.")
+          wishlist_url = {game_id: game["name"] for game_id, game in wishlist.items() if game_id != "1675200"}
+          wishlist_url = dupe_check(wishlist_url, username)
+          logging.info(f"Processing {len(wishlist_url)} games from wishlist...")
+          string_time, _ = time_get()
+          for game_id, game in wishlist_url.items():
+              url = f"https://store.steampowered.com/app/{game_id}"
+              s = GameScraper(url)
+              game_name = s.name
+              if s.for_sale:
+                  price_t = s.price
+                  price_t = float(price_t[1:])
+                  target_price = round(price_t - (price_t * 0.15), 2)
+                  target_price = f"${target_price:.2f}"
+              else:
+                  target_price = "$0"
+              if any(match["game_name"] == game_name for match in matches):
+                  logging.debug(f"Already loaded: {game}")
+              else:
+                  logging.debug(f"Adding {game_name} to db")
+                  base.add_game(
+                      game,
+                      s.price,
+                      url,
+                      username,
+                      s.bundle,
+                      s.imageURL,
+                      s.for_sale,
+                      s.has_demo,
+                      s.discount,
+                      string_time,
+                      target_price
+                  )
+          logging.info("====WISHLIST RUN COMPLETE ====")
+      except Exception as e:
+          logging.error(f"Error: {e}")
+          logging.error("Error: Unable to fetch wishlist data.")
+      finally:
+        close_db()
+
+
+def dupe_check(wishlist_list, username):
+    base = g.base
+    db_game_names = {match["game_name"] for match in base.get_games_by_username(username)}
+    duplicates = {game_id: game for game_id, game in wishlist_list.items() if game in db_game_names}
+    wishlist_list = {game_id: game for game_id, game in wishlist_list.items() if game not in db_game_names}
+    logging.info(f"Duplicate check: {len(duplicates)} games skipped.")
+    return wishlist_list
 
 def chores() -> None:
   now_str, now = time_get()
   try:
-      logging.info(f"Chores starting at {now_str}")
-      purge_old_tokens()
-      compare()
-      logging.info("Chores finished")
+      with app.app_context():
+        before_request()
+        logging.info(f"Chores starting at {now_str}")
+        purge_old_tokens()
+        compare()
+        logging.info("Chores finished")
   except Exception as e:
       logging.debug(e)
       logging.info("Chores failed")
   finally:
+      close_db()
       after_str, after = time_get()
       time_taken = after - now
       time_taken_secs = round(time_taken.total_seconds(), 2)
@@ -408,69 +369,107 @@ def chores() -> None:
       logging.info(f"Chores finished at {after_str}")
       logging.info("==== CHORES RUN COMPLETE ====")
 
-
-def wishlist_process(steamID, username) -> None:
-    logging.debug(f"Processing wishlist for user: {username}")
-    page = 0
-    wishlist = {}
-    wishlist_url = f"https://store.steampowered.com/wishlist/profiles/{steamID}/wishlistdata"
-    try:
-        while True:
-            response = requests.get(wishlist_url, params={"p": page})
-            if response.status_code == 500:
-                logging.debug("Error: Account Privacy settings are probably blocking wishlist lookup.")
-                break
-            data = response.json()
-            if not data:
-                break
-            wishlist.update(data)
-            page += 1
-        logging.debug(f"Wishlist has {page} pages.")
-        wishlist_url = {game_id: game["name"] for game_id, game in wishlist.items() if game_id != "1675200"}
-        wishlist_url = dupe_check(wishlist_url, username)
-        logging.info(f"Processing {len(wishlist_url)} games from wishlist...")
-        string_time, _ = time_get()
-        base = g.base
-        matches = base.get_games_by_username(username)
-        for game_id, game in wishlist_url.items():
-            url = f"https://store.steampowered.com/app/{game_id}"
-            s = GameScraper(url)
-            if s.for_sale:
-                price_t = s.price
-                price_t = float(price_t[1:])
-                target_price = round(price_t - (price_t * 0.15), 2)
-                target_price = f"${target_price:.2f}"
-            else:
-                target_price = "$0"
-            if any(match["game_name"] == s.game_name for match in matches):
-                logging.debug(f"Already loaded: {game}")
-            else:
-                logging.debug(f"Adding {s.game_name} to db")
-                base.add_game(
-                    game,
-                    s.price,
-                    url,
-                    username,
-                    s.bundle,
-                    s.imageURL,
-                    s.for_sale,
-                    s.has_demo,
-                    s.discount,
-                    string_time,
-                    target_price
-                )
-        logging.info("====WISHLIST RUN COMPLETE ====")
-    except Exception as e:
-        logging.debug(f"Error: {e}")
-        logging.error("Error: Unable to fetch wishlist data.")
-
-
-def dupe_check(wishlist_list, username):
+def purge_old_tokens() -> None:
+  try:
+    expire_grace = datetime.datetime.now()
+    expire_grace = expire_grace + datetime.timedelta(hours=2)
     base = g.base
-    db_game_names = {match["game_name"] for match in base.get_games_by_username(username)}
-    duplicates = {game_id: game for game_id, game in wishlist_list.items() if game in db_game_names}
-    wishlist_list = {game_id: game for game_id, game in wishlist_list.items() if game not in db_game_names}
-    logging.info(f"Duplicate check: {len(duplicates)} games skipped.")
-    return wishlist_list
+    expired_tokens = [m for m in base.get_all_tokens() if m["token_spent"] or datetime.datetime.strptime(m["token_expiration_time"], "%m-%d-%Y %I:%M:%S %p") <= expire_grace]
+    for token in expired_tokens:
+      base.delete_token(token)
+    logging.info(f"{len(expired_tokens)} Tokens Purged")
+  except Exception as e:
+    logging.debug(e)
 
+def username_to_email(username) -> str:
+  try:
+    base = g.base
+    user = base.get_user_by_username(username)
+    if not user:
+      raise Exception("User not found")
+    return user["email"]
+  except Exception as e:
+    logging.debug(e)
 
+def compare() -> None:
+    base = g.base
+    matches = base.get_all_games()
+    email_digest = {}
+    count = 0
+    for match in matches:
+        try:
+            email_digest, count = update_game_data(match, email_digest, count)
+        except Exception as e:
+            logging.debug(e)
+    price_change_mail(email_digest)
+    logging.info(f"{count} prices updated")
+
+def update_game_data(match, email_digest, count):
+    base = g.base
+    string_time, _ = time_get()
+    s = GameScraper(match["url"])
+    username = match["username"]
+    email = username_to_email(username)
+    logging.debug(f"==Scraping {match['game_name']}==")
+    try:
+      if match["has_demo"] != s.has_demo:
+        base.update_game(match["game_name"], "has_demo", s.has_demo)
+        logging.info(f"{s.name} 'has_demo' value updated to {s.has_demo}")
+      if s.for_sale and not match["for_sale"]:
+          count += 1
+          if s.for_sale:
+              logging.info(f"{s.name} is now for sale!")
+              game_data = {
+                  'old_price': "0",
+                  'new_price': s.price,
+                  'percent_change': "0",
+                  'url': match["url"],
+                  'image_url': s.imageURL,
+                  'for_sale': s.for_sale,
+                  'type': "on_sale"
+              }
+              email_digest.setdefault(username, {'email': email, 'games': {}})
+              email_digest[username]['games'][s.name] = game_data
+          elif not s.for_sale and match["for_sale"]:
+              logging.info(f"Weird! {s.name} is no longer for sale!")
+              base.update_game(s.name, "price", "$0")
+              base.update_game(s.name, "old_price", "$0")
+              base.update_game(s.name, "percent_change", "0")
+          base.update_game(s.name, "for_sale", s.for_sale)
+          base.update_game(s.name, "price_change_date", string_time)
+      if s.for_sale and s.price != match["price"]:
+          new_price = float(s.price[1:])
+          old_price = float(match["price"][1:])
+          percent_change = round((new_price - old_price) / old_price * 100, 2)
+          target_percent = float(match["target_percent"])
+          if percent_change <= target_percent:
+              count += 1
+              base.update_game(s.name, "old_price", f"${old_price}")
+              base.update_game(s.name, "price", f"${new_price}")
+              base.update_game(s.name, "percent_change", f"{percent_change}")
+              base.update_game(s.name, "price_change_date", string_time)
+              logging.info(f"{s.name} - {new_price} - decreased by {percent_change}%")
+              game_data = {
+                  'old_price': old_price,
+                  'new_price': new_price,
+                  'percent_change': percent_change,
+                  'url': match["url"],
+                  'image_url': s.imageURL,
+                  'for_sale': s.for_sale,
+                  'type': "price_change"
+              }
+              email_digest.setdefault(username, {'email': email, 'games': {}})
+              email_digest[username]['games'][s.name] = game_data
+          else:
+              base.update_game(s.name, "old_price", f"${old_price}")
+              base.update_game(s.name, "price", f"${new_price}")
+              base.update_game(s.name, "percent_change", f"{percent_change}")
+              base.update_game(s.name, "price_change_date", string_time)
+              logging.info(f"{s.name} Price increased by {percent_change}%")
+      elif not s.for_sale:
+          logging.debug(f"=={s.name} still not for sale==")
+      elif s.for_sale and s.price == match["price"]:
+          logging.debug(f"=={s.name} Price not changed==")
+      return email_digest, count
+    except Exception as e:
+        logging.debug(e)
