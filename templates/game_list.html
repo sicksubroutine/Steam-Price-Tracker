@@ -5,14 +5,16 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="/static/styles/style.css">
+  {% if text %}
   <script>
-    {% if text %}
     setTimeout(function() {
   const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
 window.history.replaceState({ path: newUrl }, '', newUrl);
   document.getElementById("error").style.display = "none";
 }, 7000);
+  </script>
     {% endif %}
+    <script>
     function filterGames() {
     var filterValue = document.getElementById("game-filter").value;
     var gameBoxes = document.getElementsByClassName("game-box");
@@ -96,14 +98,14 @@ window.history.replaceState({ path: newUrl }, '', newUrl);
   <hr>
   <center>
   <div class="game-container">
-  {% for game in game_list %}
+    {% for game in game_list %}
   
   <div class="game-box" id="game_{{ loop.index }}" data-for-sale="{{ 'true' if game.for_sale else 'false' }}" data-bundle="{{ 'true' if game.bundle else 'false' }}" data-hasdemo="{{ 'true' if game.has_demo else 'false' }}" data-discount= "{{'true' if game.discount else 'false' }}">
   <a href="{{ game.url }}" class="game_link" target="_blank"><img src="{{ game.image_url }}" width="100px"><br>
-<span class="blue">{{ game.game_name }}</span></a><br> Current Price: <span class="red">{{ game.game_price }}</span><br>
+<span class="blue">{{ game.game_name }}</span></a><br> Current Price: <span class="red">{{ game.price }}</span><br>
 Old Price: <span class="red">{{ game.old_price }}</span> - Price Change:<span class="red"> {{ game.percent_change }}%</span><br>
-Bundle: <span class="red">{{ game.bundle }}</span><br>
-Demo: <span class="red">{{ game.has_demo }}</span><br>
+Bundle: <span class="red">{{ True if game.bundle else False }}</span><br>
+Demo: <span class="red">{{ True if game.has_demo else False }}</span><br>
 Target Price: <span class="red">{{ game.target_price }}</span><br>
 Last Price Change: <span class="red">{{ game.price_change_date }}</span><br>
 <form action="/price_target" method="POST"><input type="number" step="0.01" class="target" name="target" placeholder="$ Target Price"><input type="hidden" name="game" value="{{ game.game_name }}"> <input type="submit" class="btn2" value="Submit"> </form>
@@ -111,7 +113,7 @@ Delete Game: <a href="/delete_game?d={{ game.game_name }}" class="game_link" onc
   <br>
 </div>
 
-  {% endfor %}
+{% endfor %}
   </div>
     </center>
 </body>

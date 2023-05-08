@@ -1,11 +1,11 @@
-# ignore ALL test files
+# muh stuff
 *.svg
 *.csv
 *.log
 *.txt
 *.db
-*.pickle
 __pycache__/
+.env
 
 # ignore all the replit stuff
 venv/
@@ -19,3 +19,4 @@ replit.nix
 .config/
 .tutorial/
 .game-list
+

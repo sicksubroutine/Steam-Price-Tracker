@@ -8,6 +8,7 @@ class DatabaseManager:
     self.open_db = open_db
     self.users_table = "users"
     self.games_table = "games"
+    self.tokens_table = "tokens"
     self.setup_database()
 
   def setup_database(self):
@@ -31,16 +32,16 @@ class DatabaseManager:
           price REAL NOT NULL,
           url TEXT NOT NULL,
           username TEXT NOT NULL,
-          bundle TEXT,
+          bundle BOOLEAN NOT NULL DEFAULT FALSE,
           image_url TEXT NOT NULL,
           old_price TEXT NOT NULL,
           percent_change TEXT NOT NULL,
-          for_sale INTEGER NOT NULL DEFAULT 0,
+          for_sale BOOLEAN NOT NULL DEFAULT FALSE,
           target_percent INTEGER NOT NULL DEFAULT -10,
           target_price REAL NOT NULL,
           price_change_date TEXT,
-          wishlist INTEGER NOT NULL DEFAULT 0,
-          has_demo INTEGER NOT NULL DEFAULT 0,
+          wishlist BOOLEAN NOT NULL DEFAULT FALSE,
+          has_demo BOOLEAN NOT NULL DEFAULT FALSE,
           discount TEXT,
           date_added TEXT NOT NULL,
           FOREIGN KEY (username) REFERENCES users (username)
@@ -94,6 +95,11 @@ class DatabaseManager:
     columns = [col[0] for col in cursor.description]
     return [dict(zip(columns, row)) for row in rows]
 
+  def delete_user(self, username):
+    cursor = self.conn.cursor()
+    cursor.execute('''DELETE FROM users WHERE username=?''', (username, ))
+    self.conn.commit()
+
   def authenticate_user(self, username, password):
     cursor = self.conn.cursor()
     cursor.execute(
@@ -104,7 +110,7 @@ class DatabaseManager:
     return user_id[0] if user_id else None
 
   def add_game(self, name, price, url, username, bundle, image_url, for_sale,
-               has_demo, discount, string_time):
+               has_demo, discount, string_time, target_price):
     game_key = "game" + str(random.randint(100_000_000, 999_999_999))
     cursor = self.conn.cursor()
     cursor.execute(
@@ -114,7 +120,7 @@ class DatabaseManager:
                          discount, date_added)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
       (game_key, name, price, url, username, bundle, image_url, "$0", "0",
-       for_sale, -10, price, "", 0, has_demo, discount, string_time))
+       for_sale, -10, target_price, "", 0, has_demo, discount, string_time))
     self.conn.commit()
     return game_key
 
@@ -139,16 +145,15 @@ class DatabaseManager:
     columns = [col[0] for col in cursor.description]
     return [dict(zip(columns, row)) for row in rows]
 
-  def update_game(self, game_id, field, value):
+  def update_game(self, game_name, field, value):
     cursor = self.conn.cursor()
-    cursor.execute(f'''UPDATE {self.games_table} SET {field}=? WHERE id=?''',
-                   (value, game_id))
+    cursor.execute(f'''UPDATE {self.games_table} SET {field}=? WHERE game_name=?''',
+                   (value, game_name))
     self.conn.commit()
 
-  def delete_game(self, game_id):
+  def delete_game(self, game_name):
     cursor = self.conn.cursor()
-    cursor.execute(f'''DELETE FROM {self.games_table} WHERE id=?''',
-                   (game_id, ))
+    cursor.execute(f'''DELETE FROM {self.games_table} WHERE game_name=?''',(game_name, ))
     self.conn.commit()
 
   def add_token(self, token, token_request_date, token_expiration_time,
@@ -168,6 +173,12 @@ class DatabaseManager:
     cursor = self.conn.cursor()
     cursor.execute(f'''UPDATE {self.tokens_table} SET {field}=? WHERE token=?''',
                    (value, token))
+    self.conn.commit()
+
+  def delete_token(self, token):
+    cursor = self.conn.cursor()
+    cursor.execute(f'''DELETE FROM {self.tokens_table} WHERE token=?''',
+                   (token, ))
     self.conn.commit()
 
   def get_token(self, token_id):

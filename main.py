@@ -1,14 +1,10 @@
-import os, random, time, schedule, datetime, threading, traceback, logging, pickle, hashlib
-from replit import db
+import os, random, time, schedule, datetime, threading, traceback, logging, hashlib
 from flask import Flask, request, session, redirect, render_template, g
 from loc_tools import GameScraper, saltGet, saltPass, chores, confirm_mail, gen_unique_token, token_expiration, wishlist_process, time_get
 from flask_seasurf import SeaSurf
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 from databaseMan import close_db, before_request
 
 ## TODO: Update the various functions in loc_tools, including converting to OOP when needed and using email templates whenever possible.
-## TODO: Convert system over to not using Replit Database, try to use SQlite or something else.
 
 ## SETUP ##
 
@@ -17,56 +13,9 @@ csrf = SeaSurf()
 csrf.init_app(app)
 app.secret_key = os.environ['sessionKey']
 PATH = "static/html/"
-logging.basicConfig(filename='app.log', level=logging.INFO)
-limiter = Limiter(key_func=get_remote_address)
-limiter.init_app(app)
-DATABASE = "prime_database.db"
+logging.basicConfig(filename='app.log', level=logging.DEBUG)
 app.teardown_appcontext(close_db)
 app.before_request(before_request)
-
-
-## Testing/Direct Database Modification ##
-"""
-#game testing area
-matches = db.prefix("game")
-print(f"{len(matches)} games in DB")
-for match in matches:
-  if db[match]["game_name"] == "Singularity™":
-    print(db[match]["game_name"])
-"""
-#user testing area
-
-"""
-base = g.base
-  matches = db.prefix("user")
-
-  for match in matches:
-    username = db[match]["username"]
-    password = db[match]["password"]
-    salt = db[match]["salt"]
-    email = db[match]["email"]
-    creation_date = db[match]["creation_date"]
-    user_id = base.add_user(username, password, salt, email, creation_date)
-    print(user_id)
-    base.update_user(username, "email_confirmed",
-                     db[match]["email_confirmed"])
-    base.update_user(username, "last_login",
-                     db[match]["last_login"])
-    if db[match]["username"] == "godhole":
-      base.update_user(username, "admin", True)
-      user = base.get_user_by_username("godhole")
-"""
-
-
-"""
-#token testing area
-count = 0
-matches = db.prefix("token")
-for match in matches:
-  del db[match]
-  count += 1
-print(f"{count}")
-"""
 
 ## Index ##
 
@@ -75,12 +24,15 @@ def index():
   if session.get('logged_in'):
     return redirect('/game_list')
   base = g.base
-  print(len(base.get_all_users()))
+  users = base.get_all_users()
+  print(f"{len(users)} users in db")
+  games = base.get_all_games()
+  print(f"{len(games)} games in db")
+  for game in games:
+    print(game["price"])
   return render_template('index.html', text=request.args.get("t"))
 
-
 ## SIGN UP ##
-
 
 @csrf.include
 @app.route("/signup", methods=["GET"])
@@ -91,7 +43,6 @@ def signup():
 
 
 @app.route("/sign", methods=["POST"])
-@limiter.limit("3 per hour")
 def sign():
   try:
     form = request.form
@@ -101,41 +52,24 @@ def sign():
     email = form.get("email")
     base = g.base
     matches = base.get_all_users()
-    for match in matches:
-      if match["username"] == username:
-        text = "Username already taken!"
-        return redirect(f"/signup?t={text}")
-      if match["email"] == email:
-        text = "Email already exists!"
-        return redirect(f"/signup?t={text}")
-    #user_num = "user" + str(random.randint(100_000_000, 999_999_999))
-    account_creation = datetime.datetime.now()
-    account_creation = account_creation.strftime("%m-%d-%Y %I:%M:%S %p")
+    if any(m["username"] == username for m in matches):
+      raise Exception("Username already exists!")
+    if any(m["email"] == email for m in matches):
+      raise Exception("Email already exists!")
+    account_creation = datetime.datetime.now().strftime("%m-%d-%Y %I:%M:%S %p")
     base.add_user(username, password, salt, email, account_creation)
     base.update_user(username, "email_confirmed", False)
     base.update_user(username, "last_login", "Never Logged In")
     base.update_user(username, "admin", False)
-    """db[user_num] = {
-      "username": username,
-      "password": password,
-      "salt": salt,
-      "email": email,
-      "admin": False,
-      "creation_date": account_creation,
-      "email_confirmed": False,
-      "last_login": "Never Logged In",
-    }"""
     confirm_email(username)
     text = f"You are signed up as {username}. Please confirm your email address before logging in!"
     logging.info(f"{text}")
     return redirect(f"/login?t={text}")
-  except:
-    text = "Something went wrong!"
+  except Exception as e:
+    text = "Error! {e}"
     return redirect(f"/signup?t={text}")
 
-
 ## LOGIN ##
-
 
 @csrf.include
 @app.route("/login", methods=["GET"])
@@ -148,70 +82,56 @@ def login():
 
 
 @app.route("/log", methods=["POST"])
-@limiter.limit("25 per hour")
 def log_in():
   try:
     form = request.form
     username = form.get("username")
     password = form.get("password")
     base = g.base
-    matches = base.get_all_users()
-    #matches = db.prefix("user")
-    for match in matches:
-      if match["username"] == username:
-        current_time = datetime.datetime.now()
-        salt = match["salt"]
-        password = saltPass(password, salt)
-        if match["username"] == username and match["password"] == password and match["admin"] == True:
-          last_login = current_time.strftime("%m-%d-%Y %I:%M:%S %p")
-          base.update_user(username, "last_login", last_login)
-          session["username"] = username
-          session["admin"] = True
-          session["logged_in"] = True
-          text = f"{match['username']} (Admin!) Logged In!"
-          return redirect(f"/game_list?t={text}")
-        elif match["username"] == username and match["password"] == password:
-          if match["email_confirmed"] == False:
-            # check if user has a confirmation token
-            tokens = base.get_all_tokens()
-            for token in tokens:
-              if token["username"] == username and token["token_spent"] == True:
-                # create new token and send email
-                confirm_email(username)
-                text = "Email Confirmation Sent! Please check your Email."
-                return redirect(f"/login?t={text}")
-              elif token["username"] == username and token["token_spent"] == False:
-                text = "Email not confirmed! Please confirm your email address!"
-                return redirect(f"/login?t={text}")
-            else:
-              # if no tokens are found, prompt user to confirm email
-              confirm_email(username)
-              text = "Email Confirmation Sent! Please check your Email."
-              return redirect(f"/login?t={text}")
-
-          base.update_user(username, "last_login", current_time.strftime("%m-%d-%Y %I:%M:%M %p"))
-          session["username"] = username
-          session["logged_in"] = True
-          text = "User Logged In!"
-          logging.info(f"{text}")
-          return redirect(f"/game_list?t={text}")
-    text = "Invalid login"
+    current_time = datetime.datetime.now()
+    match = next((m for m in base.get_all_users() if m["username"] == username), None)
+    if not match:
+      raise Exception("Invalid login!")
+    salt = match["salt"]
+    password = saltPass(password, salt)
+    last_login = current_time.strftime("%m-%d-%Y %I:%M:%S %p")
+    if not match["password"] == password:
+      raise Exception("Invalid login!")
+    if match["email_confirmed"] == False:
+      token = next((t for t in base.get_all_tokens() if t["username"] == username and t["token_spent"] == True), None)
+      if not token:
+        raise Exception("Email not confirmed! Please confirm your email address!")
+      confirm_email(username)
+      text = "Email Confirmation Sent! Please check your Email."
+      return redirect(f"/login?t={text}") 
+    if match["admin"] == True:
+      base.update_user(username, "last_login", last_login)
+      session.update({"username": username, "admin": True, "logged_in": True})
+      text = f"{match['username']} (Admin!) Logged In!"
+      return redirect(f"/game_list?t={text}")
+    else:
+      base.update_user(username, "last_login", last_login)
+      session.update({"username": username, "logged_in": True})
+      text = "User Logged In!"
+      logging.info(f"{text}")
+      return redirect(f"/game_list?t={text}")
+  except Exception as e:
+    text = "{e} Error!"
+    logging.debug(f"{e}")
     return redirect(f"/login?t={text}")
-  except:
-    text = "Invalid login! Something went wrong."
-    return redirect(f"/login?t={text}")
-
 
 ## EMAIL CONFIRMATION ##
 
-
 def confirm_email(username) -> None:
-  db_key = gen_unique_token(username)
-  
-  matches = base.get_all_tokens()
-  for match in matches:
-    if db_key == match["id"]:
-      confirm_mail(match["email"], match["token"], "confirm")
+  try:
+    db_key = gen_unique_token(username)
+    base = g.base
+    match = next((m for m in base.get_all_tokens() if m["id"] == db_key), None)
+    if not match:
+      raise Exception("Invalid Token!")
+    confirm_mail(match["email"], match["token"], "confirm")
+  except Exception as e:
+    logging.debug(f"Error! {e}")
 
 
 @app.route("/confirm", methods=["GET"])
@@ -223,36 +143,31 @@ def confirm():
     token = request.args.get("t")
     type = request.args.get("ty")
     base = g.base
-    users = base.get_all_users()
-    matches = base.get_all_tokens()
-    for match in matches:
-      if token == match["token"] and match["token_spent"] == False:
-        username = match["username"]
-        if token_expiration(token) == False:
-          for user in users:
-            if user["username"] == username:
-              if type == "confirm":
-                base.update_user(username, "email_confirmed", True)
-                base.update_token(token, "token_spent", True)
-                text = "Email Confirmed!"
-                return redirect(f"/login?t={text}")
-              elif type == "recovery":
-                text = "Please update your password!"
-                return redirect(f"/pass?t={text}&token={token}")
-        elif token_expiration(token):
-          db[match]["token_spent"] = True
-          text = "Token Expired!"
-          return redirect(f"/login?t={text}")
+    match = next((m for m in base.get_all_tokens() if m["token"] == token and not m["token_spent"]), None)
+    if not match:
+      raise Exception("Invalid Token!")
+    username = match["username"]
+    if not token_expiration(token):
+      user = next((u for u in base.get_all_users() if u["username"] == username), None)
+      if not user:
+        raise Exception("Invalid User!")
+      if type == "confirm":
+        base.update_user(username, "email_confirmed", True)
+        base.update_token(token, "token_spent", True)
+        text = "Email Confirmed!"
+        return redirect(f"/login?t={text}")
+      elif type == "recovery":
+        text = "Please update your password!"
+        return redirect(f"/pass?t={text}&token={token}")
     else:
-      text = "Error! Invalid Token!"
-      return redirect(f"/login?t={text}")
-  except:
-    text = "Something went wrong!"
+        base.update_token(token, "token_spent", True)
+        raise Exception("Token Expired!")
+  except Exception as e:
+    text = f"Error! {e}"
+    logging.debug(f"{e}")
     return redirect(f"/login?t={text}")
 
-
 ## PASSWORD RECOVERY ##
-
 
 @csrf.include
 @app.route("/pass_recover", methods=["GET"])
@@ -262,31 +177,27 @@ def pass_recover():
 
 
 @app.route("/recover", methods=["POST"])
-@limiter.limit("5 per hour")
 def email_check():
+  form = request.form
+  email = form.get("email")
+  base = g.base
   try:
-    form = request.form
-    email = form.get("email")
-    base = g.base 
-    matches = base.get_all_users()
-    for match in matches:
-      if match["email"] == email:
-        username = match["username"]
-        db_key = gen_unique_token(username)
-        token_match = base.get_all_tokens()
-        for tm in token_match:
-          if db_key == tm:
-            token = tm["token"]
-            confirm_mail(email, token, "recovery")
-            text = "Please check your email to recover password."
-            return redirect(f"/login?t={text}")
-    else:
-      text = "Error! Invalid Email!"
-      return redirect(f"/pass_recover?t={text}")
-  except:
-    text = "Something went wrong!"
-    return redirect(f"/pass_recover?t={text}")
-
+    match = next(m for m in base.get_all_users() if m["email"] == email)
+    if not match:
+      raise Exception("Invalid Email!")
+    username = match["username"]
+    db_key = gen_unique_token(username)
+    tm = next(tm for tm in base.get_all_tokens() if db_key == tm)
+    if not tm:
+      raise Exception("Invalid Token!")
+    token = tm["token"]
+    confirm_mail(email, token, "recovery")
+    text = "Please check your email to recover password."
+    return redirect(f"/login?t={text}")
+  except StopIteration as e:
+      text = f"Error! {e}"
+      logging.debug(f"{e}")
+      return redirect(f"/pass_recover?t={text}")  
 
 @csrf.include
 @app.route("/pass", methods=["GET"])
@@ -295,105 +206,50 @@ def pass_reset_page():
   token = request.args.get("token")
   return render_template("reset.html", text=text, token=token)
 
-
 @app.route("/password_reset", methods=["POST"])
 def pass_reset_funct():
   try:
     form = request.form
     token = form.get("token")
-    matches = db.prefix("token")
-    users = db.prefix("user")
-    for match in matches:
-      if token == db[match]["token"]:
-        username = db[match]["username"]
-        for user in users:
-          if db[user]["username"] == username:
-            salt = saltGet()
-            password = saltPass(form.get("password"), salt)
-            db[match]["token_spent"] = True
-            db[user]["password"] = password
-            db[user]["salt"] = salt
-            text = "Password Reset! Please login."
-            return redirect(f"/login?t={text}")
-        else:
-          text = "Error! Invalid Username!"
-          return redirect(f"/login?t={text}")
-    else:
-      text = "Error! Invalid Token!"
-      return redirect(f"/login?t={text}")
-  except:
-    text = "Something went wrong!"
+    password = form.get("password")
+    base = g.base
+    match = next((m for m in base.get_all_tokens() if m["token"] == token), None)
+    if not match:
+        raise Exception("Invalid Token")
+    username = match["username"]
+    user = next((u for u in base.get_all_users() if u["username"] == username), None)
+    if not user:
+        raise Exception("Invalid Username")
+    salt = saltGet()
+    password = saltPass(password, salt)
+    base.update_token(token, "token_spent", True)
+    base.update_user(username, "password", password)
+    base.update_user(username, "salt", salt)
+    text = "Password Reset! Please login."
     return redirect(f"/login?t={text}")
-
+  except Exception as e:
+      text = f"Error! {e}"
+      logging.debug(f"{e}")
+      return redirect(f"/login?t={text}")
 
 ## GAME LIST ##
-
 
 @app.route("/game_list", methods=['GET'])
 def game_list():
   if not session.get('logged_in'):
     return redirect("/")
-  username = session.get("username")
-  user_hash = hashlib.sha256(username.encode()).hexdigest()
-  cache_file = f'.game-list/{user_hash}_picked_list.pickle'
-  string_time, PT_time = time_get()
   text = request.args.get("t")
-  hash_matches = hashlib.sha256(
-    str({
-      match: db[match]
-      for match in db.prefix("game") if db[match]["username"] == username
-    }).encode()).hexdigest()
-  logging.debug(f"Database Hash: {hash_matches}")
-  hash_db = db["hash_check"]["hash"]
-  logging.debug(f"Stored DB Hash: {hash_db}")
-  now = datetime.datetime.now()
-  if os.path.exists(cache_file) and hash_db == hash_matches:
-    with open(cache_file, 'rb') as f:
-      game_list = pickle.load(f)
-  else:
-    try:
-      game_list = game_list_func(username)
-      db["hash_check"] = {"hash": hash_matches}
-      with open(cache_file, 'wb') as f:
-        pickle.dump(game_list, f)
-    except:
-      time.sleep(5)
-      game_list = game_list_func(username)
-      db["hash_check"] = {"hash": hash_matches}
-      with open(cache_file, 'wb') as f:
-        pickle.dump(game_list, f)
-  after = datetime.datetime.now()
-  admin = False
-  if session.get("admin"):
-    admin = True
+  username = session.get("username")
+  base = g.base
+  game_list = base.get_games_by_username(username)
+  #print(game_list)
   num_of_games = len(game_list)
-
-  time_elapsed = (after - now).total_seconds()
-  logging.debug(f"Time to load Game List: {time_elapsed} Seconds")
   return render_template("game_list.html",
                          game_list=game_list,
-                         user=session.get("username"),
+                         user=username,
                          text=text,
-                         admin=admin,
+                         admin=session.get("admin", False),
                          num_of_games=num_of_games)
-
-
-def game_list_func(username):
-  game_list = [{
-    "url": db[match]["url"],
-    "old_price": db[match]["old_price"],
-    "image_url": db[match]["image_url"],
-    "game_name": db[match]["game_name"],
-    "game_price": db[match]['price'],
-    "percent_change": db[match]["percent_change"],
-    "bundle": db[match]["bundle"],
-    "target_price": db[match]["target_price"],
-    "has_demo": db[match]["has_demo"],
-    "discount": db[match]["discount"],
-    "price_change_date": db[match]["price_change_date"],
-    "for_sale": db[match]["for_sale"]
-  } for match in db.prefix("game") if db[match]["username"] == username]
-  return game_list
 
 
 @csrf.exempt
@@ -401,57 +257,33 @@ def game_list_func(username):
 def price_add():
   if not session.get('logged_in'):
     return redirect("/")
+  base = g.base
   try:
     form = request.form
     url = form.get("url")
     username = session.get("username")
     s = GameScraper(url)
-    name = s.name
-    price = s.price
-    image_url = s.image_url
-    for_sale = s.for_sale
-    has_demo = s.has_demo
-    bundle = s.bundle
-    discount = s.discount
-    logging.debug(
-      f"[Price Add Function] {name} - {price} - {for_sale} - {has_demo} - {bundle}"
+    logging.debug(f"[Price Add Function] {s.name} - {s.price} - {s.for_sale} - {s.has_demo} - {s.bundle}")
+    target_price = f"${round(float(s.price[1:]) * 0.85, 2):.2f}" if s.for_sale else "$0"
+    string_time, _ = time_get()
+    if any(m["game_name"] == s.name for m in base.get_games_by_username(username)):
+      raise Exception("Game Already Added! Try another URL!")
+    base.add_game(s.name,
+                  s.price, 
+                  url, 
+                  username, 
+                  s.bundle, 
+                  s.imageURL, 
+                  s.for_sale, 
+                  s.has_demo, 
+                  s.discount, 
+                  string_time,
+                  target_price
     )
-    if for_sale:
-      price_t = price
-      price_t = float(price_t[1:])
-      target_price = round(price_t - (price_t * 0.15), 2)
-      target_price = f"${target_price:.2f}"
-    else:
-      target_price = "$0"
-    string_time, PT_time = time_get()
-    matches = db.prefix("game")
-    for match in matches:
-      if db[match]["game_name"] == name:
-        text = "Game Already Added! Try another URL!"
-        return redirect(f"/game_list?t={text}")
-    game_key = "game" + str(random.randint(100_000_000, 999_999_999))
-    db[game_key] = {
-      "game_name": name,
-      "price": price,
-      "url": url,
-      "username": username,
-      "bundle": bundle,
-      "image_url": image_url,
-      "old_price": "$0",
-      "percent_change": "0",
-      "for_sale": for_sale,
-      "target_percent": "-10",
-      "target_price": target_price,
-      "price_change_date": "",
-      "wishlist": False,
-      "has_demo": has_demo,
-      "discount": discount,
-      "date_added": string_time
-    }
-    text = f"{name} Added!"
+    text = f"{s.name} Added!"
     return redirect(f"/game_list?t={text}")
-  except:
-    logging.debug(traceback.format_exc())
+  except Exception as e:
+    logging.debug("Error! {e}")
     text = "Something went wrong!"
     return redirect(f"/game_list?t={text}")
 
@@ -463,36 +295,29 @@ def price_target():
     text = "You are not logged in!"
     return redirect(f"/login?t={text}")
   try:
-    string_time, PT_time = time_get()
+    base = g.base
     form = request.form
     username = session.get("username")
     game = form.get("game")
     target_price = form.get("target")
-    if "$" in target_price:
-      target_price = target_price.replace("$", "")
-    if target_price == "":
-      text = "You must enter a target price!"
-      return redirect(f"/game_list?t={text}")
+    if not target_price:
+      raise Exception("You must enter a target price!")
+    target_price = float(target_price.replace("$", ""))
+    match = next((m for m in base.get_all_games() if m["game_name"] == game and m["username"] == username), None)
+    if not match:
+        raise Exception(f"{game} not found for user {username}!")
+    price = float(match["price"].replace("$", ""))
+    if target_price > price:
+        raise Exception("Target price must be below current price!")
     else:
-      matches = db.prefix("game")
-      for match in matches:
-        if db[match]["game_name"] == game and db[match]["username"] == username:
-          price = db[match]["price"]
-          price = float(price.replace("$", ""))
-          target_price = float(target_price)
-          if target_price > price:
-            text = f"{game}'s target price needs to be below ${price}!"
-            return redirect(f"/game_list?t={text}")
-          else:
-            target_percent = round((target_price - price) / (price * 100), 2)
-            target_price = f"${target_price:.2f}"
-            text = f"{game}'s target price is now {target_price}!"
-            db[match]["target_percent"] = f"{target_percent}"
-            db[match]["target_price"] = f"{target_price}"
-            return redirect(f"/game_list?t={text}")
-    return f"{target_price} for {game}"
-  except:
-    text = "Something went wrong!"
+      target_percent = round((target_price - price) / (price * 100), 2)
+      target_price = f"${target_price:.2f}"
+      text = f"{game}'s target price is now {target_price}!"
+      base.update_game(match["game_name"], "target_percent", target_percent)
+      base.update_game(match["game_name"], "target_price", target_price)
+      return redirect(f"/game_list?t={text}")
+  except Exception as e:
+    text = f"Error! {e}"
     return redirect(f"/game_list?t={text}")
 
 
@@ -518,8 +343,8 @@ def wishlist_add_func(steamID, username, job):
     text = "Wishlist added!"
     schedule.cancel_job(job)
     return redirect(f"/game_list?t={text}")
-  except:
-    text = "Something went wrong!"
+  except Exception as e:
+    text = f"Error! {e}"
     schedule.cancel_job(job)
     return redirect(f"/game_list?t={text}")
 
@@ -530,19 +355,19 @@ def delete_game():
     text = "You are not logged in!"
     return redirect(f"/login?t={text}")
   try:
+    base = g.base
     game = request.args.get("d")
-    user = session.get("username")
-    matches = db.prefix("game")
+    username = session.get("username")
+    matches = base.get_games_by_username(username)
     logging.info(game)
-    for match in matches:
-      if db[match]["game_name"] == game and db[match]["username"] == user:
-        del db[match]
-        text = f"{game} Deleted!"
-        return redirect(f"/game_list?t={text}")
-    text = f"{game} Not Found!"
+    match = next((m for m in matches if m["game_name"] == game))
+    if not match:
+      raise Exception(f"{game} Not Found!")
+    base.delete_game(match["game_name"])
+    text = f"{game} Deleted!"
     return redirect(f"/game_list?t={text}")
-  except:
-    text = "Something went wrong!"
+  except Exception as e:
+    text = f"Error! {e}"
     return redirect(f"/game_list?t={text}")
 
 
@@ -555,22 +380,11 @@ def admin_panel():
   if not session.get("admin") and session.get("logged_in"):
     text = "You are not an Admin!"
     return redirect(f"/?t={text}")
-  user_list = []
-  matches = db.prefix("user")
-  for match in matches:
-    user_list.append({
-      "username": db[match]["username"],
-      "email": db[match]["email"],
-      "admin": db[match]["admin"],
-      "last_login": db[match]["last_login"],
-      "creation_date": db[match]["creation_date"],
-      "email_confirmed": str(db[match]["email_confirmed"])
-    })
-  text = request.args.get("t")
+  base = g.base
   return render_template("admin.html",
-                         user_list=user_list,
+                         user_list=base.get_all_users(),
                          user=session.get("username"),
-                         text=text)
+                         text=request.args.get("t"))
 
 
 @app.route("/delete", methods=['POST'])
@@ -579,17 +393,20 @@ def delete_user():
     text = "You are not an Admin!"
     return redirect(f"/?t={text}")
   try:
+    base = g.base
     form = request.form
     username = form.get("username")
-    matches = db.prefix("user")
-    for match in matches:
-      if db[match]["username"] == username:
-        username = db[match]["username"]
-        del db[match]
-        text = f"{username} Deleted!"
-        return redirect(f"/admin?t={text}")
-  except:
-    text = "Something went wrong!"
+    matches = base.get_all_users()
+    if any(m["username"] == username for m in matches):
+      match = next(m for m in matches if m["username"] == username)
+      if not match:
+        raise Exception(f"{username} Not Found!")
+      username = match["username"]
+      base.delete_user(username)
+      text = f"{username} Deleted!"
+      return redirect(f"/admin?t={text}")
+  except Exception as e:
+    text = f"Error! {e}"
     return redirect(f"/admin?t={text}")
 
 
@@ -625,7 +442,7 @@ def background_task():
 
 
 if __name__ == "__main__":
-  #app.run(host='0.0.0.0', port=81)
+  app.run(host='0.0.0.0', debug=True, port=81)
   #schedule.every(1).hours.do(chores)
   #t = threading.Thread(target=background_task)
   #t.start()

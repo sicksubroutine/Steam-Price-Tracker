@@ -6,16 +6,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="/static/styles/style.css">
   <title>Admin Panel</title>
-  <script>
-    {% if text %}
+  {% if text %}
+ <script>
     setTimeout(function() {
   const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
 window.history.replaceState({ path: newUrl }, '', newUrl);
 document.getElementById("error").style.display = "none";
 }, 7000);
-    
-    {% endif %}
   </script>
+  {% endif %}
 </head>
 <body><center>
   <div class="game-list-top">
@@ -40,10 +39,10 @@ document.getElementById("error").style.display = "none";
       <input class="delete" type="submit" value="Delete User">
     </form>
     Email: <span class="red">{{ user.email }}</span><br>
-    Admin Status: <span class="red">{{ user.admin }}</span><br>
+    Admin Status: <span class="red">{{ True if user.admin else False }}</span><br>
     Last Login: <span class="red">{{ user.last_login }}</span><br>
     Account Created: <span class="red">{{ user.creation_date }}</span><br>
-    Email Confirmed: <span class= "red">{{ user.email_confirmed }}</span><br>
+    Email Confirmed: <span class= "red">{{ True if user.email_confirmed else False }}</span><br>
   <hr>
   {% endfor %}
   </center>

@@ -6,15 +6,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="/static/styles/style.css">
   <title>Steam Price Tracking</title>
+  {% if text %}
   <script>
-    {% if text %}
     setTimeout(function() {
   const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
 window.history.replaceState({ path: newUrl }, '', newUrl);
 document.getElementById("error").style.display = "none";
 }, 7000);
-    {% endif %}
   </script>
+  {% endif %}
 </head>
 <body>
   <center>

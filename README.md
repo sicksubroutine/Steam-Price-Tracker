@@ -3,7 +3,7 @@ Flask/Python based app that will allow you to scrape Steam prices and will send 
 
 ## Why this project?
 
-This project was done to conicide with the 100th day of Replit's 100 Days of Code. The final project was a little too basic for my tastes. I've tried to push myself as much as possible to maximize my amount of learning while doing this project.
+This project was done to coincide with the 100th day of Replit's 100 Days of Code. The final project was a little too basic for my tastes. I've tried to push myself as much as possible to maximize my amount of learning while doing this project.
 
 ### Features:
 
@@ -22,3 +22,5 @@ This project was done to conicide with the 100th day of Replit's 100 Days of Cod
 ### Status
 
 It does the job it is supposed to do. It no doubt has some bugs here and there. It also isn't the prettiest website ever but my main focus was on the backend and not the frontend. That being said, I did take the opportunity to practice HTML/CSS whenever possible here.
+
+Replaced Replit DB with SQLite.
