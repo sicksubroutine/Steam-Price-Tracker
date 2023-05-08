@@ -200,7 +200,8 @@ def open_db():
     g.database.row_factory = sqlite3.Row
   return g.database
 
-def close_db(error):
+def close_db(error=None):
+  print(f"{error} occurred!")
   if 'database' in g:
     g.database.close()
 
