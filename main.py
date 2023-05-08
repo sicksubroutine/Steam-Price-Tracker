@@ -66,7 +66,7 @@ def sign():
     logging.info(f"{text}")
     return redirect(f"/login?t={text}")
   except Exception as e:
-    text = "Error! {e}"
+    text = f"Error! {e}"
     return redirect(f"/signup?t={text}")
 
 ## LOGIN ##
@@ -116,7 +116,7 @@ def log_in():
       logging.info(f"{text}")
       return redirect(f"/game_list?t={text}")
   except Exception as e:
-    text = "{e} Error!"
+    text = f"{e} Error!"
     logging.debug(f"{e}")
     return redirect(f"/login?t={text}")
 
@@ -131,6 +131,7 @@ def confirm_email(username) -> None:
       raise Exception("Invalid Token!")
     confirm_mail(match["email"], match["token"], "confirm")
   except Exception as e:
+    print(f"Error! {e}")
     logging.debug(f"Error! {e}")
 
 
