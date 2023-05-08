@@ -354,7 +354,6 @@ def chores() -> None:
       compare()
       logging.info("Chores finished")
   except Exception as e:
-    close_db(e)
     logging.debug(f"Chores failed! {e}")
   finally:
       close_db()
