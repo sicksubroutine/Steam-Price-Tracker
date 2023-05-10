@@ -193,6 +193,15 @@ class DatabaseManager:
     rows = cursor.fetchall()
     columns = [col[0] for col in cursor.description]
     return [dict(zip(columns, row)) for row in rows]
+  
+  def delete_all_expired_tokens(self):
+    more_than_an_hour_ago = time.time() - 3600
+    cursor = self.conn.cursor()
+    num_of_tokens = cursor.execute('''SELECT COUNT(*) FROM tokens WHERE token_expiration_time < ?''', (more_than_an_hour_ago, )).fetchone()[0]
+    cursor.execute('''DELETE FROM tokens WHERE token_expiration_time < ?''', (more_than_an_hour_ago, ))
+    self.conn.commit()
+    return num_of_tokens
+    
 
 def open_db():
   if 'database' not in g:

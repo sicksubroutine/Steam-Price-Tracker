@@ -465,4 +465,4 @@ if __name__ == "__main__":
   schedule.every(2).hours.do(chores)
   t = threading.Thread(target=background_task)
   t.start()
-  app.run(host='0.0.0.0', port=81)
+  app.run(host='0.0.0.0', debug=True, port=81)

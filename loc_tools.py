@@ -370,13 +370,9 @@ def chores() -> None:
 
 def purge_old_tokens() -> None:
   try:
-    expire_grace = datetime.datetime.now()
-    expire_grace = expire_grace + datetime.timedelta(hours=2)
     base = g.base
-    expired_tokens = [m for m in base.get_all_tokens() if m["token_spent"] or datetime.datetime.strptime(m["token_expiration_time"], "%m-%d-%Y %I:%M:%S %p") <= expire_grace]
-    for token in expired_tokens:
-      base.delete_token(token)
-    logging.info(f"{len(expired_tokens)} Tokens Purged")
+    num = base.delete_all_expired_tokens()
+    logging.info(f"{len(num)} Tokens Purged")
   except Exception as e:
     logging.debug(e)
 
